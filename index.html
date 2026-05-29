@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Quintet 30 - لعبة 5 في صف الفورية</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; -webkit-tap-highlight-color:transparent; }
         body {
@@ -15,80 +16,96 @@
         #header {
             background:linear-gradient(135deg,#1a2332 0%,#243447 100%);
             color:#fff; padding:8px 14px; display:flex; justify-content:space-between; align-items:center;
-            box-shadow:0 3px 15px rgba(0,0,0,0.2); z-index:10; flex-shrink:0;
+            box-shadow:0 3px 15px rgba(0,0,0,0.2); z-index:10; flex-shrink:0; flex-wrap:wrap; gap:5px;
             border-bottom:2px solid #f1c40f;
         }
-        #logo { font-size:1.2rem; font-weight:700; color:#f1c40f; }
-        #scores { display:flex; gap:15px; font-size:0.95rem; }
+        #logo { font-size:1.2rem; font-weight:700; background:linear-gradient(135deg,#fff,#f1c40f); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        #scores { display:flex; gap:12px; font-size:0.9rem; }
         .score-x { color:#5dade2; font-weight:700; } .score-o { color:#ec7063; font-weight:700; }
-        .score-num { background:rgba(255,255,255,0.15); padding:2px 8px; border-radius:5px; margin-right:4px; }
+        .score-num { display:inline-block; min-width:18px; text-align:center; font-weight:700; color:#fff; background:rgba(255,255,255,0.1); padding:1px 6px; border-radius:4px; }
+        #turn-box { display:flex; align-items:center; gap:8px; }
         #turn-indicator {
-            padding:4px 14px; border-radius:20px; font-weight:700; font-size:0.85rem;
-            background:#27ae60; color:#fff; min-width:110px; text-align:center;
+            padding:4px 14px; border-radius:20px; font-weight:700; font-size:0.8rem; min-width:95px; text-align:center;
         }
-        #turn-indicator.waiting { background:#e67e22; }
+        #turn-indicator.your-turn { background:#27ae60; color:#fff; box-shadow:0 0 10px rgba(46,204,113,0.3); }
+        #turn-indicator.waiting { background:#2980b9; color:#fff; }
+        #my-symbol { font-size:0.8rem; background:rgba(255,255,255,0.08); padding:2px 10px; border-radius:12px; }
+        #conn-status { display:inline-flex; align-items:center; gap:5px; font-size:0.75rem; }
+        #conn-dot { width:8px; height:8px; border-radius:50%; background:#e74c3c; display:inline-block; }
+        #conn-dot.online { background:#27ae60; box-shadow:0 0 8px #27ae60; }
 
         /* ===== Control Bar ===== */
-        #ctrl-bar {
-            background:rgba(255,255,255,0.9); padding:8px 14px; display:flex; 
-            justify-content:space-between; align-items:center; border-bottom:1px solid #ddd;
-        }
-        .btn-action {
-            padding:6px 12px; background:#3498db; color:#fff; border:none; 
-            border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;
-        }
-        .btn-action:hover { background:#2980b9; }
+        #ctrl-bar { background:rgba(255,255,255,0.85); border-bottom:1px solid #ddd; display:flex; align-items:center; justify-content:space-between; padding:6px 14px; flex-shrink:0; }
+        .btn-ctrl { padding:4px 12px; border:1px solid #ccc; border-radius:6px; background:#fff; cursor:pointer; font-size:0.8rem; font-weight:500; }
+        .btn-ctrl:hover { background:#f5f5f5; }
 
         /* ===== Game Area ===== */
         #game-area { flex:1; display:flex; overflow:hidden; position:relative; }
-        #board-container { flex:1; overflow:auto; position:relative; background:#faf7f2; }
+        #board-container { flex:1; overflow:auto; background:#f4eee4; position:relative; }
         #board { position:relative; }
 
         /* ===== Cells ===== */
         .cell {
-            position:absolute; width:30px; height:30px;
-            border:1px solid rgba(26,35,50,0.18);
-            display:flex; align-items:center; justify-content:center;
-            font-size:18px; font-weight:700; cursor:pointer; user-select:none; background:#fff;
+            position:absolute; width:28px; height:28px; border:1px solid rgba(26,35,50,0.2);
+            display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700;
+            cursor:pointer; user-select:none; background:#faf7f2;
         }
         .cell:hover { background:rgba(52,152,219,0.1); }
         .cell.x { color:#3498db; background:#eaf4fc; }
-        .cell.o { color:#e74c3c; background:#fdeaea]; }
+        .cell.o { color:#e74c3c; background:#fdeaea; }
 
-        /* ===== Lobby Overlays ===== */
-        #lobby {
-            position:fixed; inset:0; background:rgba(26,35,50,0.95);
-            display:flex; justify-content:center; align-items:center; z-index:200; padding:20px;
-        }
-        .lobby-box {
-            background:#fff; padding:30px; border-radius:15px; max-width:400px; 
-            width:100%; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.3);
-        }
-        .lobby-box h2 { margin-bottom:15px; color:#1a2332; }
-        .invite-link-box {
-            background:#f8f9fa; border:1px dashed #3498db; padding:10px; 
-            border-radius:8px; margin:15px 0; font-size:0.8rem; word-break:break-all; user-select:all;
-        }
+        /* ===== Chat ===== */
+        #chat { width:220px; background:#fff; border-left:1px solid #eee; display:flex; flex-direction:column; flex-shrink:0; }
+        #chat-head { padding:8px; background:#1a2332; color:#fff; font-size:0.8rem; text-align:center; }
+        #chat-msgs { flex:1; overflow-y:auto; padding:8px; font-size:0.78rem; display:flex; flex-direction:column; gap:4px; background:#f8f9fa; }
+        .msg { padding:4px 8px; border-radius:8px; max-width:90%; word-break:break-word; }
+        .msg.me { background:#3498db; color:#fff; align-self:flex-start; }
+        .msg.other { background:#eee; color:#000; align-self:flex-end; }
+        #chat-input { padding:6px; border-top:1px solid #eee; display:flex; gap:4px; }
+        #chat-input input { flex:1; padding:6px; border:1px solid #ddd; border-radius:4px; font-size:0.8rem; outline:none; }
+        #chat-input button { padding:6px 12px; background:#3498db; color:#fff; border:none; border-radius:4px; cursor:pointer; }
 
+        /* ===== Lobby ===== */
+        #lobby { position:fixed; inset:0; background:#1a2332; display:flex; justify-content:center; align-items:center; z-index:200; padding:20px; }
+        #lobby-box { background:#fff; padding:25px; border-radius:15px; max-width:400px; width:100%; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.5); }
+        #room-id { font-size:2rem; font-family:monospace; background:#9b59b6; color:#fff; padding:10px; border-radius:10px; margin:10px 0; font-weight:800; letter-spacing:4px; }
+        #join-input { width:100%; padding:10px; border:2px solid #ddd; border-radius:10px; font-size:1.3rem; text-align:center; margin:10px 0; font-weight:700; letter-spacing:4px; }
+        .btn-btn { padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-size:0.9rem; font-weight:600; margin:4px; }
+        .btn-b1 { background:#1a2332; color:#fff; } .btn-b2 { background:#3498db; color:#fff; }
+        .btn-ai { background:#8e44ad; color:#fff; width:100%; margin-top:8px; }
+        .hidden { display:none !important; }
         #modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:100; }
         #modal-content { background:#fff; padding:25px; border-radius:15px; text-align:center; max-width:300px; width:100%; }
+        #chat-toggle { display:none; }
+        @media (max-width:768px) {
+            #chat { position:fixed; left:0; top:0; bottom:0; width:220px; transform:translateX(-100%); transition:0.3s; z-index:50; }
+            #chat.open { transform:translateX(0); }
+            #chat-toggle { display:block; position:fixed; left:15px; bottom:15px; background:#3498db; color:#fff; border:none; border-radius:50%; width:45px; height:45px; font-size:1.2rem; z-index:51; }
+        }
     </style>
 </head>
 <body>
 
     <div id="lobby">
-        <div class="lobby-box" id="box-create">
-            <h2>🎯 لعبة Quintet 30 الفورية</h2>
-            <p style="color:#666; font-size:0.9rem; margin-bottom:15px;">العب مع صديقك مباشرة دون الحاجة لإنشاء حساب أو انتظار السيرفرات!</p>
-            <button class="btn-action" id="btn-start-game" style="font-size:1.1rem; padding:10px 25px; width:100%;">🚀 بدء لعبة جديدة</button>
-            <button class="btn-action" id="btn-vs-ai" style="font-size:1rem; padding:10px 25px; width:100%; margin-top:10px; background:#8e44ad;">🤖 اللعب ضد الذكاء الاصطناعي</button>
-        </div>
-        
-        <div class="lobby-box hidden" id="box-invite">
-            <h2>⏳ في انتظار صديقك...</h2>
-            <p style="color:#555; font-size:0.85rem;">قم بنسخ الرابط بالأسفل وأرسله لصديقك ليدخل معك في نفس اللعبة فوراً:</p>
-            <div class="invite-link-box" id="link-text">جاري توليد الرابط...</div>
-            <button class="btn-action" id="btn-copy-link">📋 نسخ الرابط لإرساله</button>
+        <div id="lobby-box">
+            <h2 style="margin-bottom:5px;">🎯 قنص 30 الفورية</h2>
+            <p style="color:#777; font-size:0.85rem; margin-bottom:15px;">لعبة 5 في صف تلقائية سريعة</p>
+
+            <div id="phase-choose">
+                <button class="btn-btn btn-b1" id="btn-create">🚀 إنشاء غرفة جديدة</button>
+                <hr style="margin:12px 0; border-color:#eee;">
+                <p style="font-size:0.85rem; color:#555;">أدخل كود الغرفة المكون من 5 أرقام للانضمام:</p>
+                <input type="text" id="join-input" placeholder="00000" maxlength="5">
+                <button class="btn-btn btn-b2" id="btn-join">🔗 انضمام الآن</button>
+                <div id="status-msg" style="color:#e67e22; font-size:0.8rem; margin-top:5px;"></div>
+                <button class="btn-btn btn-ai" id="btn-vs-ai">🤖 اللعب ضد الحاسوب</button>
+            </div>
+
+            <div id="phase-room" class="hidden">
+                <p style="font-size:0.9rem; color:#555;">أرسل هذا الكود لصديقك ليدخل معك فوراً:</p>
+                <div id="room-id">-----</div>
+                <p style="color:#27ae60; font-weight:600; font-size:0.85rem; animation:pulse 1s infinite;">📡 بانتظار دخول الخصم...</p>
+            </div>
         </div>
     </div>
 
@@ -98,53 +115,71 @@
             <span class="score-x">X: <span id="score-x" class="score-num">0</span></span>
             <span class="score-o">O: <span id="score-o" class="score-num">0</span></span>
         </div>
-        <div>
-            <span id="turn-indicator"> دورك 🎯</span>
+        <div id="turn-box">
+            <span id="my-symbol">👀 مشاهد</span>
+            <span id="turn-indicator" class="waiting">بانتظار البداية</span>
+        </div>
+        <div id="conn-status">
+            <span id="conn-dot"></span>
+            <span id="conn-text" style="font-size:0.7rem; margin-right:3px;">منقطع</span>
         </div>
     </div>
 
     <div id="ctrl-bar">
-        <button class="btn-action" id="btn-reset">🔄 إعادة تعيين الجولة</button>
-        <span style="font-size:0.85rem; color:#666;" id="role-text">نمط اللعب المباشر</span>
+        <button class="btn-ctrl" id="btn-rematch" disabled>🔄 جولة جديدة</button>
+        <button class="btn-ctrl" onclick="location.reload()">🏠 اللوبي</button>
     </div>
 
     <div id="game-area">
         <div id="board-container">
             <div id="board"></div>
         </div>
+        <div id="chat">
+            <div id="chat-head">💬 المحادثة الفورية</div>
+            <div id="chat-msgs"></div>
+            <form id="chat-input" onsubmit="return false;">
+                <input type="text" id="chat-txt" placeholder="اكتب رسالة..." disabled>
+                <button type="submit" id="chat-send" disabled>إرسال</button>
+            </form>
+        </div>
     </div>
+
+    <button id="chat-toggle">💬</button>
 
     <div id="modal">
         <div id="modal-content">
-            <h2 id="modal-title">انتهت اللعبة!</h2>
+            <h2 id="modal-title">انتهت الجولة!</h2>
             <p id="modal-body" style="margin:10px 0; font-weight:bold;"></p>
-            <button class="btn-action" onclick="location.reload()">جولة جديدة</button>
+            <button class="btn-btn btn-b2" id="modal-btn-rematch">جولة جديدة</button>
         </div>
     </div>
 
     <script>
         const id = x => document.getElementById(x);
+        const q = x => document.querySelector(x);
         const BOARD_SIZE = 30;
         let board = [];
         let curPlayer = 'X';
-        let mySymbol = 'X'; 
         let scoreX = 0, scoreO = 0;
-        let isAI = false;
-        let gameActive = true;
+        let isAI = false, gameActive = false;
 
-        // إعداد شبكة اللعب
+        let client = null;
+        let topicName = null;
+        let isHost = false;
+        let mySymbol = '👀';
+        let clientID = 'q30_' + Math.floor(Math.random()*100000);
+
+        id('chat-toggle').addEventListener('click', () => id('chat').classList.toggle('open'));
+
         function renderBoard() {
             const bEl = id('board'); bEl.innerHTML = '';
-            bEl.style.width = (BOARD_SIZE * 30) + 'px';
-            bEl.style.height = (BOARD_SIZE * 30) + 'px';
+            bEl.style.width = (BOARD_SIZE * 28) + 'px'; bEl.style.height = (BOARD_SIZE * 28) + 'px';
             board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
 
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
                     const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    cell.style.right = (c * 30) + 'px';
-                    cell.style.top = (r * 30) + 'px';
+                    cell.className = 'cell'; cell.style.right = (c * 28) + 'px'; cell.style.top = (r * 28) + 'px';
                     cell.dataset.r = r; cell.dataset.c = c;
                     cell.addEventListener('click', () => handleCellClick(r, c));
                     bEl.appendChild(cell);
@@ -152,88 +187,31 @@
             }
         }
 
-        // قراءة بيانات اللعبة والتحكم المباشر عبر الرابط
-        function syncFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            if (params.has('moves')) {
-                renderBoard();
-                const movesStr = params.get('moves');
-                if(movesStr) {
-                    const movesArr = movesStr.split('-');
-                    curPlayer = 'X';
-                    movesArr.forEach(m => {
-                        if(!m) return;
-                        const [r, c] = m.split(',').map(Number);
-                        if(!isNaN(r) && !isNaN(c)) {
-                            board[r][c] = curPlayer;
-                            const cell = document.querySelector(`.cell[data-r='${r}'][data-c='${c}']`);
-                            if (cell) { cell.textContent = curPlayer; cell.classList.add(curPlayer.toLowerCase()); }
-                            curPlayer = curPlayer === 'X' ? 'O' : 'X';
-                        }
-                    });
-                }
-                
-                // تحديد الأدوار تلقائياً بناءً على من فتح الرابط
-                if (params.get('role') === 'join') {
-                    mySymbol = 'O';
-                    id('role-text').textContent = 'أنت تلعب بالرمز (O)';
-                } else {
-                    mySymbol = 'X';
-                    id('role-text').textContent = 'أنت منشئ الغرفة (X)';
-                }
-                
-                id('lobby').style.display = 'none';
-                updateTurnUI();
-            }
-        }
-
         function handleCellClick(r, c) {
             if (!gameActive || board[r][c] !== null) return;
-            if (!isAI && curPlayer !== mySymbol) { alert('⚠️ ليس دورك الآن! انتظر حركة الخصم المحدثة في الرابط.'); return; }
+            if (client && !isAI && curPlayer !== mySymbol) return;
 
+            executeMove(r, c);
+            if (client) {
+                sendNetMsg({ type: 'MOVE', r, c });
+            }
+            if (isAI && gameActive && curPlayer === 'O') setTimeout(executeAIMove, 300);
+        }
+
+        function executeMove(r, c) {
             board[r][c] = curPlayer;
-            const cell = document.querySelector(`.cell[data-r='${r}'][data-c='${c}']`);
+            const cell = q(`.cell[data-r='${r}'][data-c='${c}']`);
             if (cell) { cell.textContent = curPlayer; cell.classList.add(curPlayer.toLowerCase()); }
-
-            // تحديث الرابط فوراً لمشاركته
-            const params = new URLSearchParams(window.location.search);
-            let moves = params.get('moves') || '';
-            moves += (moves ? '-' : '') + `${r},${c}`;
-            params.set('moves', moves);
             
-            if (checkWin(r, c)) {
-                id('modal-body').textContent = `الفائز هو اللاعب: ${curPlayer}`;
-                id('modal').style.display = 'flex';
-                gameActive = false;
-                return;
-            }
-
+            if (checkWin(r, c)) { endGame(curPlayer); return; }
             curPlayer = curPlayer === 'X' ? 'O' : 'X';
-            
-            if (isAI) {
-                updateTurnUI();
-                if (curPlayer === 'O') setTimeout(executeAIMove, 300);
-            } else {
-                // في اللعب المشترك: نقوم بتحديث الرابط في المتصفح ونسخه تلقائياً للخصم
-                params.set('role', 'join'); // الخصم سيكون الزائر دائماً
-                const nextURL = window.location.origin + window.location.pathname + '?' + params.toString();
-                window.history.replaceState({}, '', window.location.pathname + '?' + 'moves=' + moves + '&role=' + mySymbol.toLowerCase());
-                
-                navigator.clipboard.writeText(nextURL).then(() => {
-                    alert('🎯 تم تسجيل حركتك بنجاح! وتم نسخ رابط اللعبة المحدث تلقائياً بحافظتك، أرسله لصديقك الآن ليكمل دوره!');
-                }).catch(() => {
-                    prompt('🎯 حركتك جاهزة! انسخ هذا الرابط المحدث وأرسله لصديقك فوراً ليكمل دوره:', nextURL);
-                });
-                updateTurnUI();
-            }
+            updateTurnUI();
         }
 
         function checkWin(r, c) {
-            const sym = board[r][c];
-            const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
+            const sym = board[r][c]; const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
             for (let [dr, dc] of dirs) {
-                let count = 1;
-                let nr = r + dr, nc = c + dc;
+                let count = 1; let nr = r + dr, nc = c + dc;
                 while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { count++; nr+=dr; nc+=dc; }
                 nr = r - dr; nc = c - dc;
                 while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { count++; nr-=dr; nc-=dc; }
@@ -242,41 +220,124 @@
             return false;
         }
 
-        function updateTurnUI() {
-            const ti = id('turn-indicator');
-            if (curPlayer === mySymbol) {
-                ti.textContent = '🎯 دورك الآن'; ti.className = '';
-            } else {
-                ti.textContent = '⏳ دور الخصم'; ti.className = 'waiting';
-            }
+        function endGame(winner) {
+            gameActive = false;
+            if (winner === 'X') scoreX++; else scoreO++;
+            id('score-x').textContent = scoreX; id('score-o').textContent = scoreO;
+            id('modal-body').textContent = `الفائز هو اللاعب: ${winner}`;
+            id('modal').style.display = 'flex'; id('btn-rematch').disabled = false;
         }
 
-        // أزرار التحكم واللوبي
-        id('btn-start-game').addEventListener('click', () => {
-            id('box-create').classList.add('hidden');
-            id('box-invite').classList.remove('hidden');
-            const startURL = window.location.origin + window.location.pathname + '?moves=&role=join';
-            id('link-text').textContent = startURL;
-        });
+        function updateTurnUI() {
+            const ti = id('turn-indicator');
+            if(!gameActive) { ti.textContent = 'انتهت الجولة'; ti.className = 'waiting'; return; }
+            if(isAI) {
+                ti.textContent = curPlayer === 'X' ? '🎯 دورك' : '🤖 تفكير...';
+                ti.className = curPlayer === 'X' ? 'your-turn' : 'waiting'; return;
+            }
+            if(client) {
+                ti.textContent = curPlayer === mySymbol ? '🎯 دورك!' : '⏳ دور الخصم';
+                ti.className = curPlayer === mySymbol ? 'your-turn' : 'waiting'; return;
+            }
+            ti.textContent = `دور ${curPlayer}`;
+        }
 
-        id('btn-copy-link').addEventListener('click', () => {
-            const link = id('link-text').textContent;
-            navigator.clipboard.writeText(link).then(() => {
-                alert('📋 تم نسخ الرابط بنجاح! أرسله لصديقك الآن، وبمجرد أن يفتحه ستبدأ اللعبة فوراً.');
-                window.location.href = window.location.origin + window.location.pathname + '?moves=&role=host';
+        // الاتصال الشبكي المباشر التلقائي السلس جداً
+        function initNetwork(code, onDone) {
+            id('status-msg').textContent = '📡 جاري فتح قناة اتصال فورية...';
+            topicName = "quintet30/room/" + code;
+
+            // خادم سحابي عالمي عام ومستقر جداً للويب سوكيت ومفتوح بدون حظر
+            client = new Paho.MQTT.Client("broker.hivemq.com", Number(8000), clientID);
+
+            client.onConnectionLost = function() {
+                id('conn-dot').className = ''; id('conn-text').textContent = 'منقطع';
+            };
+
+            client.onMessageArrived = function(message) {
+                let data = JSON.parse(message.payloadString);
+                if (data.sender === clientID) return;
+
+                if (data.type === 'HELLO') {
+                    id('lobby').style.display = 'none';
+                    id('chat-txt').disabled = false; id('chat-send').disabled = false;
+                    if (isHost) {
+                        mySymbol = 'X'; id('my-symbol').textContent = '👤 رمزك: X';
+                        sendNetMsg({ type: 'WELCOME' });
+                        startNewMatch();
+                    }
+                }
+                if (data.type === 'WELCOME') {
+                    id('lobby').style.display = 'none';
+                    id('chat-txt').disabled = false; id('chat-send').disabled = false;
+                    mySymbol = 'O'; id('my-symbol').textContent = '👤 رمزك: O';
+                    startNewMatch();
+                }
+                if (data.type === 'MOVE') { executeMove(data.r, data.c); }
+                if (data.type === 'CHAT') { appendChat('الخصم', data.text, 'other'); }
+                if (data.type === 'REMATCH') { startNewMatch(); id('modal').style.display = 'none'; }
+            };
+
+            client.connect({
+                onSuccess: function() {
+                    id('conn-dot').className = 'online'; id('conn-text').textContent = 'متصل فوري';
+                    client.subscribe(topicName);
+                    onDone();
+                },
+                onFailure: function() {
+                    id('status-msg').textContent = '❌ مشكلة في الشبكة، أعد المحاولة.';
+                },
+                useSSL: false
+            });
+        }
+
+        function sendNetMsg(obj) {
+            obj.sender = clientID;
+            let message = new Paho.MQTT.Message(JSON.stringify(obj));
+            message.destinationName = topicName;
+            client.send(message);
+        }
+
+        id('btn-create').addEventListener('click', () => {
+            let code = Math.floor(10000 + Math.random() * 90000).toString();
+            isHost = true;
+            initNetwork(code, () => {
+                id('phase-choose').classList.add('hidden');
+                id('phase-room').classList.remove('hidden');
+                id('room-id').textContent = code;
             });
         });
 
-        id('btn-vs-ai').addEventListener('click', () => {
-            isAI = true; id('lobby').style.display = 'none';
-            id('role-text').textContent = 'نمط اللعب ضد الذكاء الاصطناعي';
-            renderBoard();
+        id('btn-join').addEventListener('click', () => {
+            let code = id('join-input').value.trim();
+            if(code.length !== 5) { id('status-msg').textContent = '⚠️ الكود 5 أرقام!'; return; }
+            isHost = false;
+            initNetwork(code, () => {
+                sendNetMsg({ type: 'HELLO' });
+            });
         });
 
-        id('btn-reset').addEventListener('click', () => {
-            const p = new URLSearchParams(window.location.search);
-            p.delete('moves');
-            window.location.href = window.location.origin + window.location.pathname;
+        function startNewMatch() {
+            renderBoard(); curPlayer = 'X'; gameActive = true; updateTurnUI(); id('btn-rematch').disabled = true;
+        }
+
+        id('btn-rematch').addEventListener('click', () => { if(client) sendNetMsg({ type: 'REMATCH' }); startNewMatch(); });
+        id('modal-btn-rematch').addEventListener('click', () => { id('modal').style.display = 'none'; if(client) sendNetMsg({ type: 'REMATCH' }); startNewMatch(); });
+
+        id('btn-vs-ai').addEventListener('click', () => {
+            isAI = true; id('lobby').style.display = 'none'; mySymbol = 'X'; id('my-symbol').textContent = '👤 أنت: X'; startNewMatch();
+        });
+
+        function appendChat(user, text, style) {
+            const m = document.createElement('div'); m.className = `msg ${style}`;
+            m.innerHTML = `<strong>${user}:</strong> ${text}`; id('chat-msgs').appendChild(m);
+            id('chat-msgs').scrollTop = id('chat-msgs').scrollHeight;
+        }
+
+        id('chat-input').addEventListener('submit', () => {
+            const txt = id('chat-txt').value.trim(); if(!txt) return;
+            if(client) sendNetMsg({ type: 'CHAT', text: txt });
+            appendChat('أنت', txt, 'me'); id('chat-txt').value = '';
         });
 
         function executeAIMove() {
@@ -286,19 +347,11 @@
             }
             if(options.length > 0 && gameActive) {
                 let choice = options[Math.floor(Math.random() * options.length)];
-                board[choice.r][choice.c] = 'O';
-                const cell = document.querySelector(`.cell[data-r='${choice.r}'][data-c='${choice.c}']`);
-                if (cell) { cell.textContent = 'O'; cell.classList.add('o'); }
-                if (checkWin(choice.r, choice.c)) {
-                    id('modal-body').textContent = 'للأسف، فاز الذكاء الاصطناعي!';
-                    id('modal').style.display = 'flex'; gameActive = false; return;
-                }
-                curPlayer = 'X'; updateTurnUI();
+                executeMove(choice.r, choice.c);
             }
         }
 
         renderBoard();
-        syncFromURL();
     </script>
 </body>
 </html>
