@@ -60,18 +60,6 @@
         .ctrl-group button:active { transform:translateY(0); }
         .ctrl-group button:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
         .ctrl-label { font-size:0.72rem; color:#7f8c8d; font-weight:600; display:flex; align-items:center; gap:3px; }
-        .rematch-pending { background:linear-gradient(135deg,#f39c12,#e67e22) !important; color:#fff !important; border-color:#d35400 !important; animation:pulse 1.2s infinite !important; }
-        .rematch-waiting { background:linear-gradient(135deg,#95a5a6,#7f8c8d) !important; color:#fff !important; border-color:#6c7a7a !important; }
-
-        /* ===== Invite Banner ===== */
-        #invite-banner {
-            position:fixed; top:100px; left:50%; transform:translateX(-50%) scale(0.8);
-            background:linear-gradient(135deg,#667eea,#764ba2); color:#fff;
-            padding:12px 28px; border-radius:30px; box-shadow:0 8px 30px rgba(102,126,234,0.35);
-            font-size:1.1rem; font-weight:700; z-index:90; white-space:nowrap;
-            opacity:0; pointer-events:none; transition:all 0.5s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        #invite-banner.show { opacity:1; transform:translateX(-50%) scale(1); }
 
         /* ===== Game Area ===== */
         #game-area { flex:1; display:flex; overflow:hidden; position:relative; min-height:0; }
@@ -91,305 +79,83 @@
             display:flex; align-items:center; justify-content:center;
             font-size:17px; font-weight:700; transition:all 0.12s ease;
             cursor:pointer; user-select:none; background:#faf7f2; z-index:1;
-            box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);
-        }
-        .cell::before {
-            content:''; position:absolute; inset:0;
-            background:linear-gradient(135deg, rgba(255,255,255,0.35) 0%, transparent 50%);
-            pointer-events:none; z-index:0;
         }
         .cell:hover { background:rgba(52,152,219,0.1); border-color:rgba(52,152,219,0.3); z-index:2; transform:scale(1.04); }
-        .cell.x {
-            color:#3498db; background:linear-gradient(135deg,#eaf4fc,#d4e8f7);
-            border-color:rgba(52,152,219,0.3);
-            text-shadow:0 1px 2px rgba(52,152,219,0.2);
-        }
-        .cell.o {
-            color:#e74c3c; background:linear-gradient(135deg,#fdeaea,#f9d5d5);
-            border-color:rgba(231,76,60,0.3);
-            text-shadow:0 1px 2px rgba(231,76,60,0.2);
-        }
-        .cell.glow {
-            animation:scoreGlow 1.4s ease-out forwards;
-        }
+        .cell.x { color:#3498db; background:linear-gradient(135deg,#eaf4fc,#d4e8f7); }
+        .cell.o { color:#e74c3c; background:linear-gradient(135deg,#fdeaea,#f9d5d5); }
+        .cell.glow { animation:scoreGlow 1.4s ease-out forwards; }
         @keyframes scoreGlow {
-            0% { box-shadow:0 0 0 0 rgba(46,204,113,0.5),inset 0 0 20px rgba(46,204,113,0.15); background:rgba(46,204,113,0.2); border-color:rgba(46,204,113,0.4); transform:scale(1.08); }
-            100% { box-shadow:0 0 0 12px transparent,inset 0 0 0 transparent; background:transparent; transform:scale(1); }
+            0% { background:rgba(46,204,113,0.5); transform:scale(1.08); }
+            100% { background:transparent; transform:scale(1); }
         }
-        .cell.used {
-            background:repeating-linear-gradient(45deg,#e0e0e0,#e0e0e0 4px,#d5d5d5 4px,#d5d5d5 8px) !important;
-            color:rgba(0,0,0,0.15) !important; cursor:not-allowed !important;
-            border-color:rgba(0,0,0,0.1) !important; box-shadow:none !important; transform:none !important;
-            z-index:0;
-        }
-        .cell.used::before {
-            content:''; position:absolute; left:15%; top:50%; width:70%; height:2px;
-            background:rgba(0,0,0,0.12);
-            transform:rotate(45deg); border-radius:2px;
-        }
-        .cell.used::after {
-            content:''; position:absolute; left:15%; top:50%; width:70%; height:2px;
-            background:rgba(0,0,0,0.12);
-            transform:rotate(-45deg); border-radius:2px;
-        }
-        .cell.disabled { cursor:not-allowed; opacity:0.6; }
 
         /* ===== Chat ===== */
         #chat {
             width:230px; background:#fff; border-left:1px solid rgba(26,35,50,0.08);
-            display:flex; flex-direction:column;
-            box-shadow:-3px 0 15px rgba(0,0,0,0.04);
+            display:flex; flex-direction:column; box-shadow:-3px 0 15px rgba(0,0,0,0.04);
             flex-shrink:0; position:relative; z-index:5;
         }
-        #chat-head { padding:8px 12px; background:linear-gradient(135deg,#1a2332,#243447); color:#fff; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
-        #chat-head .chatter { font-size:0.68rem; opacity:0.6; }
-        #chat-msgs { flex:1; overflow-y:auto; padding:10px; font-size:0.8rem; display:flex; flex-direction:column; gap:5px; background:#f8f9fa; min-height:0; }
-        #chat-msgs::-webkit-scrollbar { width:4px; }
-        #chat-msgs::-webkit-scrollbar-thumb { background:#ccc; border-radius:4px; }
-        .msg { padding:6px 10px; border-radius:10px; max-width:92%; word-break:break-word; line-height:1.35; font-size:0.8rem; }
-        .msg.me { background:linear-gradient(135deg,#3498db,#2980b9); color:#fff; align-self:flex-start; border-bottom-left-radius:3px; box-shadow:0 1px 3px rgba(52,152,219,0.2); }
-        .msg.other { background:#fff; color:#1a2332; align-self:flex-end; border-bottom-right-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,0.06); border:1px solid rgba(0,0,0,0.04); }
-        .msg.sys { background:transparent; color:#95a5a6; font-style:italic; align-self:center; max-width:100%; font-size:0.72rem; }
-        #chat-input { padding:8px; border-top:1px solid #e8e8e8; display:flex; gap:6px; background:#fff; flex-shrink:0; }
-        #chat-input input { flex:1; padding:7px 12px; border:1px solid #ddd; border-radius:20px; outline:none; font-size:0.82rem; min-width:0; transition:0.2s; background:#f5f5f5; }
-        #chat-input input:focus { border-color:#3498db; background:#fff; box-shadow:0 0 0 3px rgba(52,152,219,0.08); }
-        #chat-input input:disabled { background:#eee; cursor:not-allowed; opacity:0.6; }
-        #chat-input button {
-            padding:7px 14px; background:linear-gradient(135deg,#3498db,#2980b9); color:#fff;
-            border:none; border-radius:20px; cursor:pointer; font-size:0.85rem; white-space:nowrap;
-            transition:all 0.15s; box-shadow:0 2px 6px rgba(52,152,219,0.2);
-        }
-        #chat-input button:hover:not(:disabled) { background:linear-gradient(135deg,#2980b9,#2471a3); transform:translateY(-1px); box-shadow:0 3px 10px rgba(52,152,219,0.3); }
-        #chat-input button:disabled { background:#bdc3c7; cursor:not-allowed; box-shadow:none; }
+        #chat-head { padding:8px 12px; background:linear-gradient(135deg,#1a2332,#243447); color:#fff; font-size:0.82rem; }
+        #chat-msgs { flex:1; overflow-y:auto; padding:10px; font-size:0.8rem; display:flex; flex-direction:column; gap:5px; background:#f8f9fa; }
+        .msg { padding:6px 10px; border-radius:10px; max-width:92%; word-break:break-word; }
+        .msg.me { background:#3498db; color:#fff; align-self:flex-start; }
+        .msg.other { background:#fff; color:#1a2332; align-self:flex-end; border:1px solid #ddd; }
+        .msg.sys { color:#95a5a6; font-style:italic; align-self:center; font-size:0.72rem; }
+        #chat-input { padding:8px; border-top:1px solid #e8e8e8; display:flex; gap:6px; }
+        #chat-input input { flex:1; padding:7px 12px; border:1px solid #ddd; border-radius:20px; outline:none; font-size:0.82rem; }
+        #chat-input button { padding:7px 14px; background:#3498db; color:#fff; border:none; border-radius:20px; cursor:pointer; }
 
         /* ===== Lobby ===== */
         #lobby {
-            position:fixed; inset:0;
-            background:linear-gradient(135deg,#1a2332 0%,#243447 50%,#1a2332 100%);
-            display:flex; flex-direction:column; justify-content:center; align-items:center;
-            z-index:200; padding:20px;
-        }
-        #lobby::before {
-            content:''; position:absolute; inset:0;
-            background:radial-gradient(ellipse at 30% 20%, rgba(241,196,15,0.06) 0%, transparent 60%),
-                       radial-gradient(ellipse at 70% 80%, rgba(52,152,219,0.06) 0%, transparent 60%);
-            pointer-events:none;
+            position:fixed; inset:0; background:linear-gradient(135deg,#1a2332 0%,#243447 100%);
+            display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:200; padding:20px;
         }
         #lobby-box {
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(20px);
-            padding:30px; border-radius:20px;
-            box-shadow:0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05);
-            max-width:440px; width:100%; text-align:center; position:relative;
-            animation:lobbyIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+            background:#fff; padding:30px; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,0.3);
+            max-width:440px; width:100%; text-align:center;
         }
-        @keyframes lobbyIn { 0%{opacity:0;transform:translateY(30px) scale(0.95)} 100%{opacity:1;transform:translateY(0) scale(1)} }
-        #lobby h2 { margin-bottom:2px; color:#1a2332; font-size:1.5rem; font-weight:800; }
+        #lobby h2 { margin-bottom:5px; color:#1a2332; }
         #lobby .sub { color:#7f8c8d; margin-bottom:15px; font-size:0.85rem; }
-        .name-field { margin-bottom:14px; text-align:right; }
-        .name-field label { display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px; color:#444; }
-        .name-field input {
-            width:100%; padding:9px 12px; border:2px solid #e0e0e0; border-radius:10px;
-            font-size:1rem; outline:none; transition:0.2s; background:#fafafa;
-        }
-        .name-field input:focus { border-color:#667eea; background:#fff; box-shadow:0 0 0 3px rgba(102,126,234,0.1); }
         #room-id {
-            font-size:2.2rem; letter-spacing:10px; font-family:'SF Mono',Consolas,monospace;
-            background:linear-gradient(135deg,#667eea,#764ba2);
-            color:#fff; padding:14px 20px; border-radius:14px;
-            margin:12px 0; user-select:all; font-weight:800;
-            box-shadow:0 6px 25px rgba(102,126,234,0.35);
-            text-shadow:0 2px 4px rgba(0,0,0,0.15);
-            transition:transform 0.3s;
+            font-size:1.8rem; font-family:monospace; background:linear-gradient(135deg,#667eea,#764ba2);
+            color:#fff; padding:12px; border-radius:14px; margin:12px 0; font-weight:800; user-select:all;
         }
-        #room-id:hover { transform:scale(1.02); }
         #join-input {
-            width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:12px;
-            font-size:1.4rem; text-align:center; margin:8px 0 14px;
-            letter-spacing:8px; font-family:'SF Mono',Consolas,monospace; font-weight:700; direction:ltr;
-            background:#fafafa; transition:0.2s;
+            width:100%; padding:10px; border:2px solid #e0e0e0; border-radius:12px;
+            font-size:1.2rem; text-align:center; margin:8px 0 14px; font-weight:700;
         }
-        #join-input:focus { border-color:#667eea; outline:none; background:#fff; box-shadow:0 0 0 3px rgba(102,126,234,0.1); }
-        .btn {
-            padding:11px 24px; border:none; border-radius:10px; cursor:pointer;
-            font-size:0.95rem; margin:4px; transition:all 0.2s; font-weight:600;
-            position:relative; overflow:hidden;
-        }
-        .btn:hover { opacity:0.92; transform:translateY(-2px); }
-        .btn:active { transform:scale(0.97); }
-        .btn-host { background:linear-gradient(135deg,#1a2332,#2c3e50); color:#fff; box-shadow:0 4px 15px rgba(26,35,50,0.3); }
-        .btn-host:hover { box-shadow:0 6px 20px rgba(26,35,50,0.4); }
-        .btn-join { background:linear-gradient(135deg,#3498db,#2980b9); color:#fff; box-shadow:0 4px 15px rgba(52,152,219,0.3); }
-        .btn-join:hover { box-shadow:0 6px 20px rgba(52,152,219,0.4); }
-        .btn-ai { background:linear-gradient(135deg,#6c3483,#8e44ad); color:#fff; box-shadow:0 4px 15px rgba(108,52,131,0.3); width:100%; }
-        .btn-ai:hover { box-shadow:0 6px 20px rgba(108,52,131,0.4); transform:translateY(-2px); }
-        .btn-cancel { background:linear-gradient(135deg,#95a5a6,#7f8c8d); color:#fff; box-shadow:0 4px 12px rgba(149,165,166,0.3); }
-        .btn-start { background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; font-size:1.05rem; padding:13px 34px; box-shadow:0 4px 18px rgba(46,204,113,0.3); }
-        .btn-start:hover { box-shadow:0 6px 25px rgba(46,204,113,0.4); }
-        .btn-start:disabled { background:linear-gradient(135deg,#95a5a6,#bdc3c7); cursor:not-allowed; transform:none; box-shadow:none; }
+        .btn { padding:11px 24px; border:none; border-radius:10px; cursor:pointer; font-size:0.95rem; margin:4px; font-weight:600; }
+        .btn-host { background:#1a2332; color:#fff; }
+        .btn-join { background:#3498db; color:#fff; }
+        .btn-ai { background:#8e44ad; color:#fff; width:100%; }
+        .btn-cancel { background:#95a5a6; color:#fff; }
+        .btn-start { background:#27ae60; color:#fff; }
         .hidden { display:none !important; }
 
-        /* Size buttons */
         .size-group { display:flex; gap:6px; justify-content:center; margin:8px 0 14px; }
-        .size-btn {
-            padding:8px 20px; border:2px solid transparent; border-radius:10px;
-            font-size:0.9rem; font-weight:700; cursor:pointer;
-            transition:all 0.2s; background:#f0f0f0; color:#555; flex:1; max-width:100px;
-        }
-        .size-btn:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.1); }
-        .size-btn.selected-size {
-            background:linear-gradient(135deg,#1a2332,#2c3e50) !important;
-            color:#fff !important; border-color:#f1c40f !important;
-            box-shadow:0 4px 15px rgba(241,196,15,0.25) !important;
-        }
+        .size-btn { padding:8px 20px; border:none; border-radius:10px; background:#f0f0f0; cursor:pointer; }
+        .size-btn.selected-size { background:#1a2332 !important; color:#fff !important; }
 
-        /* Ready badges */
-        .ready-badge {
-            display:inline-block; padding:4px 14px; border-radius:20px;
-            font-size:0.8rem; font-weight:600; margin:3px;
-        }
-        .ready-badge.ok { background:linear-gradient(135deg,#d4edda,#c3e6cb); color:#155724; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+        .mp-player-row { display:flex; justify-content:space-between; padding:6px 10px; margin:4px 0; background:#f9f9f9; border-radius:8px; font-size:0.85rem; }
+        .ready-badge { padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; color:#fff; }
+        .ready-yes { background:#27ae60; } .ready-no { background:#95a5a6; }
+        #modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:100; }
+        #modal-content { background:#fff; padding:30px; border-radius:20px; text-align:center; max-width:350px; width:100%; }
+        #status-msg { font-size:0.85rem; min-height:22px; margin-top:8px; font-weight:500; color:#e67e22; }
+        #chat-toggle { display:none; }
 
-        /* ===== Modal ===== */
-        #modal {
-            display:none; position:fixed; inset:0;
-            background:rgba(26,35,50,0.7); backdrop-filter:blur(6px);
-            justify-content:center; align-items:center; z-index:100; padding:20px;
-            animation:modalFade 0.3s ease;
-        }
-        @keyframes modalFade { 0%{opacity:0} 100%{opacity:1} }
-        #modal-content {
-            background:#fff; padding:28px 32px; border-radius:20px;
-            text-align:center; box-shadow:0 25px 60px rgba(0,0,0,0.3);
-            max-width:380px; width:100%; position:relative;
-            animation:modalIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        @keyframes modalIn { 0%{opacity:0;transform:translateY(40px) scale(0.92)} 100%{opacity:1;transform:translateY(0) scale(1)} }
-        #modal-content::before {
-            content:'🏆'; position:absolute; top:-22px; left:50%; transform:translateX(-50%);
-            font-size:2.8rem; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.2));
-        }
-        #modal h2 { margin-bottom:8px; font-size:1.4rem; color:#1a2332; font-weight:800; }
-        #modal p { margin:6px 0; font-size:0.95rem; color:#555; }
-        #modal .score-display { font-size:1.3rem; margin:10px 0; display:flex; justify-content:center; align-items:center; gap:10px; }
-        #modal .score-display .score-x { color:#3498db; font-weight:800; }
-        #modal .score-display .score-o { color:#e74c3c; font-weight:800; }
-        #modal button {
-            margin-top:10px; padding:10px 24px; border:none; border-radius:30px;
-            cursor:pointer; font-size:0.9rem; font-weight:600; transition:all 0.2s;
-        }
-        #modal .btn-primary { background:linear-gradient(135deg,#3498db,#2980b9); color:#fff; box-shadow:0 4px 12px rgba(52,152,219,0.25); }
-        #modal .btn-primary:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(52,152,219,0.35); }
-        #modal .btn-accept { background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; box-shadow:0 4px 12px rgba(46,204,113,0.25); }
-        #modal .btn-accept:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(46,204,113,0.35); }
-        #modal .btn-ghost { background:transparent; color:#7f8c8d; border:1px solid #ddd; }
-        #modal .btn-ghost:hover { background:#f5f5f5; }
-        #modal .rematch-req { color:#f39c12; font-weight:700; font-size:0.85rem; margin:6px 0; }
-
-        /* Status message */
-        #status-msg { font-size:0.85rem; min-height:22px; margin-top:8px; font-weight:500; }
-        .status-wait { color:#7f8c8d; } .status-error { color:#e74c3c; } .status-warn { color:#e67e22; } .status-retry { color:#f39c12; }
-        .status-ok { color:#27ae60; }
-
-        /* ===== Mobile ===== */
         @media (max-width:768px) {
-            #chat {
-                position:fixed; left:0; top:0; bottom:0; width:280px;
-                transform:translateX(-100%); transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
-                z-index:50; box-shadow:5px 0 30px rgba(0,0,0,0.2);
-                border-left:none; border-right:none;
-            }
+            #chat { position:fixed; left:0; top:0; bottom:0; width:260px; transform:translateX(-100%); transition:transform 0.3s; z-index:50; }
             #chat.open { transform:translateX(0); }
-            #chat-toggle {
-                display:block; position:fixed; left:10px; bottom:10px;
-                background:linear-gradient(135deg,#3498db,#2980b9); color:white;
-                border:none; border-radius:50%; width:52px; height:52px;
-                font-size:1.4rem; cursor:pointer; z-index:51;
-                box-shadow:0 4px 20px rgba(52,152,219,0.4);
-                transition:all 0.2s;
-            }
-            #chat-toggle:active { transform:scale(0.92); }
-            #header { padding:4px 10px; gap:2px 6px; }
-            #logo { font-size:0.85rem; }
-            #scores { gap:6px; font-size:0.75rem; }
-            #turn-indicator { font-size:0.7rem; min-width:65px; padding:3px 8px; }
-            #my-symbol { font-size:0.7rem; padding:1px 6px; }
-            #ctrl-bar { padding:4px 10px; }
-            .ctrl-group button { font-size:0.65rem; padding:3px 7px; }
-            .ctrl-label { font-size:0.65rem; }
-            .cell { width:26px; height:26px; font-size:15px; }
-            #room-id { font-size:1.6rem; letter-spacing:6px; padding:12px; }
-            #player-names { font-size:0.6rem; gap:4px; }
-            #conn-status { font-size:0.65rem; padding:1px 6px; }
-            #lobby-box { padding:20px; border-radius:16px; margin:10px; }
-            #lobby h2 { font-size:1.25rem; }
+            #chat-toggle { display:block; position:fixed; left:15px; bottom:15px; background:#3498db; color:#fff; border:none; border-radius:50%; width:50px; height:50px; font-size:1.3rem; z-index:51; }
         }
-        @media (max-width:480px) {
-            #header { padding:3px 8px; }
-            #logo { font-size:0.75rem; }
-            #scores { font-size:0.7rem; gap:4px; }
-            #turn-indicator { font-size:0.65rem; min-width:55px; padding:2px 6px; }
-            #my-symbol { display:none; }
-            #player-names { font-size:0.55rem; }
-            #conn-status { font-size:0.6rem; }
-            .cell { width:24px; height:24px; font-size:13px; }
-            #chat { width:260px; }
-            #lobby-box { padding:16px; }
-            .size-btn { padding:6px 12px; font-size:0.8rem; }
-        }
-        @media (min-width:769px) { #chat-toggle { display:none; } }
-
-        /* ===== Multiplayer ===== */
-        .mp-btn { background:linear-gradient(135deg,#8e44ad,#9b59b6); color:#fff !important; box-shadow:0 4px 15px rgba(142,68,173,0.3); }
-        .mp-btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(142,68,173,0.4); }
-        #mp-room-id { font-size:2.2rem; letter-spacing:8px; font-weight:700; font-family:monospace; background:linear-gradient(135deg,#2c3e50,#3498db); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; padding:8px; }
-        .mp-player-list { margin:10px 0; text-align:right; }
-        .mp-player-row { display:flex; justify-content:space-between; align-items:center; padding:6px 10px; margin:3px 0; background:rgba(255,255,255,0.7); border-radius:8px; border:1px solid rgba(0,0,0,0.06); font-size:0.85rem; }
-        .mp-player-row.me { background:rgba(52,152,219,0.08); border-color:rgba(52,152,219,0.2); }
-        .mp-player-row .host-badge { background:linear-gradient(135deg,#f1c40f,#f39c12); color:#fff; padding:1px 8px; border-radius:10px; font-size:0.65rem; font-weight:700; margin-right:5px; }
-        .mp-player-row .ready-badge { padding:1px 8px; border-radius:10px; font-size:0.65rem; font-weight:700; }
-        .mp-player-row .ready-yes { background:#27ae60; color:#fff; }
-        .mp-player-row .ready-no { background:#95a5a6; color:#fff; }
-        .mp-player-count { font-size:0.8rem; color:#7f8c8d; }
-        .mp-mode-select { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0; }
-        .mp-mode-btn { padding:8px 16px; border:2px solid #ddd; border-radius:10px; background:#fff; cursor:pointer; font-size:0.8rem; font-weight:600; transition:all 0.15s; text-align:center; flex:1; min-width:90px; }
-        .mp-mode-btn:hover { border-color:#8e44ad; background:rgba(142,68,173,0.04); }
-        .mp-mode-btn.selected { border-color:#8e44ad; background:linear-gradient(135deg,#8e44ad,#9b59b6); color:#fff; box-shadow:0 4px 12px rgba(142,68,173,0.25); }
-        .mp-section { margin:10px 0; background:rgba(255,255,255,0.5); border-radius:12px; padding:12px; border:1px solid rgba(0,0,0,0.06); }
-        .mp-section h4 { font-size:0.9rem; color:#2c3e50; margin-bottom:8px; }
-        .mp-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
-        .mp-table th { background:#1a2332; color:#fff; padding:6px 8px; text-align:center; font-weight:600; }
-        .mp-table td { padding:5px 8px; text-align:center; border-bottom:1px solid rgba(0,0,0,0.05); }
-        .mp-table tr:nth-child(even) { background:rgba(0,0,0,0.02); }
-        .mp-table .rank-1 { background:rgba(241,196,15,0.12); font-weight:700; }
-        .mp-table .rank-2 { background:rgba(149,165,166,0.12); font-weight:600; }
-        .mp-table .rank-3 { background:rgba(205,132,72,0.12); font-weight:600; }
-        .mp-bracket { display:flex; flex-direction:column; gap:4px; margin:8px 0; }
-        .mp-match-card { padding:6px 10px; background:rgba(255,255,255,0.8); border-radius:8px; border:1px solid rgba(0,0,0,0.08); font-size:0.8rem; display:flex; justify-content:space-between; align-items:center; }
-        .mp-match-card.active { border-color:#27ae60; background:rgba(39,174,96,0.06); box-shadow:0 0 12px rgba(39,174,96,0.15); }
-        .mp-match-card.done { opacity:0.6; }
-        .mp-match-card .vs { color:#7f8c8d; font-weight:300; margin:0 6px; }
-        .mp-match-card .score { font-weight:700; }
-        .mp-match-card .mp-winner { color:#27ae60; }
-        .mp-match-card .mp-loser { color:#e74c3c; }
-        .mp-next-match { padding:10px; background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; border-radius:10px; text-align:center; font-weight:700; font-size:0.95rem; margin:8px 0; box-shadow:0 4px 15px rgba(39,174,96,0.25); }
-        .mp-notification { position:fixed; top:80px; left:50%; transform:translateX(-50%); padding:12px 24px; border-radius:20px; color:#fff; font-weight:700; font-size:1rem; z-index:99; box-shadow:0 8px 30px rgba(0,0,0,0.15); pointer-events:none; opacity:0; transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
-        .mp-notification.show { opacity:1; transform:translateX(-50%) scale(1); }
-        .mp-notification.info { background:linear-gradient(135deg,#2980b9,#3498db); }
-        .mp-notification.win { background:linear-gradient(135deg,#27ae60,#2ecc71); }
-        .mp-bracket-view { display:flex; gap:12px; overflow-x:auto; padding:8px 0; }
-        .mp-round-col { min-width:140px; }
-        .mp-round-col h5 { text-align:center; color:#7f8c8d; font-size:0.75rem; margin-bottom:6px; }
-        .mp-bracket-match { padding:4px 8px; margin:2px 0; border:1px solid #ddd; border-radius:6px; font-size:0.75rem; background:#fff; text-align:center; }
-        .mp-bracket-match .b-winner { color:#27ae60; font-weight:700; }
-        .mp-bracket-match .b-pending { color:#aaa; }
-        .btn-ghost-sm { padding:5px 12px; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; font-size:0.75rem; font-weight:500; transition:all 0.15s; }
-        .btn-ghost-sm:hover { background:#f5f5f5; border-color:#999; }
     </style>
 </head>
 <body>
+
     <div id="lobby">
         <div id="lobby-box">
-            <h2>🎯 Quintet 30</h2>
+            <h2>🎯 قنص 30 (Quintet)</h2>
             <p class="sub">لعبة 5 في صف على شبكة <span id="lobby-size-label">30</span>×<span id="lobby-size-label2">30</span></p>
 
             <div style="margin:12px 0 4px;">
@@ -402,31 +168,26 @@
             </div>
 
             <div id="phase-choose">
-                <button class="btn btn-host" id="btn-create">🚀 إنشاء غرفة</button>
+                <button class="btn btn-host" id="btn-create">🚀 إنشاء غرفة جديدة</button>
                 <hr style="margin:15px 0;border-color:#eee;">
-                <p>أو انضم لغرفة:</p>
-                <input type="text" id="join-input" placeholder="123" maxlength="3" inputmode="numeric" pattern="[0-9]*">
-                <button class="btn btn-join" id="btn-join">🔗 انضمام</button>
-                <div id="status-msg" class="status-wait"></div>
-                <div style="margin:10px 0 5px;">
-                    <button class="btn btn-ai" id="btn-vs-ai">🤖 اللعب ضد الذكاء الاصطناعي</button>
+                <p>أو ادخل كود الغرفة المكون من 6 أرقام:</p>
+                <input type="text" id="join-input" placeholder="000000" maxlength="6">
+                <button class="btn btn-join" id="btn-join">🔗 انضمام للغرفة</button>
+                <div id="status-msg"></div>
+                <div style="margin-top:10px;">
+                    <button class="btn btn-ai" id="btn-vs-ai">🤖 اللعب ضد الحاسوب</button>
                 </div>
             </div>
 
             <div id="phase-room" class="hidden">
-                <p style="font-size:0.9rem;color:#555;">أرسل الكود المكون من 3 أرقام لصديقك:</p>
-                <div id="room-id">---</div>
-                
-                <div style="margin:12px 0; background:rgba(0,0,0,0.03); padding:8px; border-radius:10px;">
-                    <div style="font-size:0.85rem; font-weight:bold; color:#444; margin-bottom:4px;">👥 المتواجدون في الغرفة:</div>
+                <p style="font-size:0.9rem;color:#555;">انسخ هذا الكود وأرسله لصديقك:</p>
+                <div id="room-id">------</div>
+                <div style="margin:12px 0; background:#f5f5f5; padding:8px; border-radius:10px;">
                     <div id="lobby-players-list"></div>
                 </div>
-
-                <div style="margin:15px 0;" id="lobby-ready-container">
-                    <button class="btn btn-start" id="btn-ready-toggle">✋ أنا مستعد</button>
-                </div>
-
-                <button class="btn btn-cancel" id="btn-leave">🚪 مغادرة الغرفة</button>
+                <button class="btn btn-start" id="btn-ready-toggle">✋ أنا مستعد</button>
+                <br><br>
+                <button class="btn btn-cancel" id="btn-leave" onclick="location.reload()">🚪 مغادرة</button>
             </div>
         </div>
     </div>
@@ -450,8 +211,7 @@
     <div id="ctrl-bar">
         <div class="ctrl-group">
             <button id="btn-rematch" disabled>🔄 جولة جديدة</button>
-            <button id="btn-reset-scores">🧹 تصفير النتيجة</button>
-            <button id="btn-lobby-return">🏠 اللوبي</button>
+            <button id="btn-lobby-return" onclick="location.reload()">🏠 اللوبي</button>
         </div>
         <div id="player-names">
             <span class="pname-x">X: ---</span> | <span class="pname-o">O: ---</span>
@@ -464,15 +224,10 @@
         </div>
 
         <div id="chat">
-            <div id="chat-head">
-                <span>💬 الدردشة العامة</span>
-                <span class="chatter" id="chat-status">نشط</span>
-            </div>
-            <div id="chat-msgs">
-                <div class="msg sys">أهلاً بك في شات الغرفة!</div>
-            </div>
+            <div id="chat-head">💬 دردشة الغرفة</div>
+            <div id="chat-msgs"></div>
             <form id="chat-input" onsubmit="return false;">
-                <input type="text" id="chat-txt" placeholder="اكتب رسالة..." autocomplete="off" disabled>
+                <input type="text" id="chat-txt" placeholder="اكتب هنا..." disabled>
                 <button type="submit" id="chat-send" disabled>إرسال</button>
             </form>
         </div>
@@ -482,66 +237,32 @@
 
     <div id="modal">
         <div id="modal-content">
-            <h2 id="modal-title">انتهت المباراة!</h2>
-            <p id="modal-body">فاز اللاعب بالنتيجة</p>
-            <div class="score-display">
-                <span class="score-x" id="modal-sx">0</span> : <span class="score-o" id="modal-so">0</span>
-            </div>
-            <div id="modal-rematch-status" class="rematch-req hidden">طلب الخصم جولة جديدة!</div>
-            <div style="display:flex; gap:8px; justify-content:center; margin-top:14px;">
-                <button id="modal-btn-rematch" class="btn-primary">جولة جديدة</button>
-                <button id="modal-btn-close" class="btn-ghost">إغلاق</button>
-            </div>
+            <h2 id="modal-title">انتهت الجولة!</h2>
+            <p id="modal-body"></p>
+            <button id="modal-btn-rematch" style="padding:10px 20px; background:#3498db; color:#fff; border:none; border-radius:5px; cursor:pointer;">جولة جديدة</button>
         </div>
     </div>
 
     <script>
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playTone(freq, type, duration, vol=0.1) {
-            try {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type; osc.frequency.value = freq;
-                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + duration);
-            } catch(e){}
-        }
-        const sndPlay = () => playTone(587.33, 'sine', 0.08, 0.15);
-        const sndWin = () => { playTone(523.25, 'triangle', 0.1, 0.2); setTimeout(()=>playTone(659.25, 'triangle', 0.1, 0.2),100); setTimeout(()=>playTone(783.99, 'triangle', 0.3, 0.2),200); };
-        const sndLose = () => { playTone(392.00, 'sawtooth', 0.15, 0.1); setTimeout(()=>playTone(311.13, 'sawtooth', 0.3, 0.1),150); };
-        const sndMsg = () => playTone(880, 'sine', 0.04, 0.08);
-    </script>
-
-    <script>
-        // Utilities
         const id = x => document.getElementById(x);
         const q = x => document.querySelector(x);
         const qA = x => document.querySelectorAll(x);
 
-        // Core Game Configurations & State
         let BOARD_SIZE = 30;
         let gameActive = false;
-        let board = []; 
-        let usedCells = []; 
-        let winningLine = [];
-        let curPlayer = 'X'; 
+        let board = [];
+        let curPlayer = 'X';
         let scoreX = 0, scoreO = 0;
         let p1Name = 'لاعب X', p2Name = 'لاعب O';
         let isAI = false;
 
-        // P2P Networking variables
         let peer = null;
         let conn = null;
         let isHost = false;
-        let myId3 = '';
         let opponentReady = false;
         let myReady = false;
 
-        // Configuration object for PeerJS to use Google's public STUN servers.
-        // This allows devices across different cities/networks to establish P2P connection successfully.
+        // إعدادات الـ ICE الفعالة لتخطي الحواسب وجدران الحماية بين المدن المتعددة
         const peerIceConfig = {
             config: {
                 iceServers: [
@@ -554,13 +275,11 @@
             }
         };
 
-        // UI Interactions for Chat Panel
         id('chat-toggle').addEventListener('click', () => id('chat').classList.toggle('open'));
 
-        // Grid Size Selection Event Handler
         qA('.size-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                if(peer || conn) return; // Prevent sizing during active connection
+                if(peer) return;
                 qA('.size-btn').forEach(b => b.classList.remove('selected-size'));
                 this.classList.add('selected-size');
                 BOARD_SIZE = parseInt(this.dataset.size);
@@ -570,20 +289,12 @@
             });
         });
 
-        // Initialize empty matrix grid
-        function initMatrix() {
-            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
-            usedCells = []; winningLine = [];
-        }
-
-        // Render graphical board layout
         function renderBoard() {
             const bEl = id('board');
             bEl.innerHTML = '';
             bEl.style.width = (BOARD_SIZE * 28) + 'px';
             bEl.style.height = (BOARD_SIZE * 28) + 'px';
-            
-            initMatrix();
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
 
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
@@ -599,512 +310,222 @@
             }
         }
 
-        // Cell Selection Handler
         function handleCellClick(r, c) {
-            if (!gameActive || board[r][c] !== null || isCellUsed(r, c)) return;
-            
-            // Turn authorization validation for P2P network matches
+            if (!gameActive || board[r][c] !== null) return;
             if (peer && !isAI) {
-                const requiredSymbol = isHost ? 'X' : 'O';
-                if (curPlayer !== requiredSymbol) return;
+                const mySym = isHost ? 'X' : 'O';
+                if (curPlayer !== mySym) return;
             }
-
             executeMove(r, c);
-
-            // Synchronize selection state to remote participant peer
-            if (conn && conn.open) {
-                conn.send({ type: 'MOVE', r, c });
-            }
-
-            // AI Routine invocation when configured
-            if (isAI && gameActive && curPlayer === 'O') {
-                setTimeout(executeAIMove, 250);
-            }
+            if (conn && conn.open) conn.send({ type: 'MOVE', r, c });
+            if (isAI && gameActive && curPlayer === 'O') setTimeout(executeAIMove, 300);
         }
 
-        function isCellUsed(r, c) { return usedCells.some(cell => cell.r === r && cell.c === c); }
-
-        // Execute board cell modification and check results
         function executeMove(r, c) {
             board[r][c] = curPlayer;
-            const domCell = q(`.cell[data-r='${r}'][data-c='${c}']`);
-            if (domCell) {
-                domCell.textContent = curPlayer;
-                domCell.classList.add(curPlayer.toLowerCase());
-            }
-            sndPlay();
-
-            if (checkWin(r, c)) {
-                endGame(curPlayer);
-                return;
-            }
-
-            if (checkDraw()) {
-                endGame('DRAW');
-                return;
-            }
-
-            // Invert active system turn
+            const cell = q(`.cell[data-r='${r}'][data-c='${c}']`);
+            if (cell) { cell.textContent = curPlayer; cell.classList.add(curPlayer.toLowerCase()); }
+            
+            if (checkWin(r, c)) { endGame(curPlayer); return; }
             curPlayer = curPlayer === 'X' ? 'O' : 'X';
             updateTurnUI();
         }
 
-        // Standard 5-in-a-row (Gomoku style) positional calculation logic
         function checkWin(r, c) {
             const sym = board[r][c];
             const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
-            
             for (let [dr, dc] of dirs) {
                 let count = 1;
-                let line = [{r, c}];
-                
-                // Positive directional iteration
                 let nr = r + dr, nc = c + dc;
-                while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) {
-                    count++; line.push({r:nr, c:nc}); nr += dr; nc += dc;
-                }
-                // Negative directional iteration
+                while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { count++; nr+=dr; nc+=dc; }
                 nr = r - dr; nc = c - dc;
-                while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) {
-                    count++; line.push({r:nr, c:nc}); nr -= dr; nc -= dc;
-                }
-
-                if (count >= 5) { winningLine = line; return true; }
+                while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { count++; nr-=dr; nc-=dc; }
+                if (count >= 5) return true;
             }
             return false;
         }
 
-        function checkDraw() {
-            for(let r=0; r<BOARD_SIZE; r++) {
-                for(let c=0; c<BOARD_SIZE; c++) {
-                    if (board[r][c] === null) return false;
-                }
-            }
-            return true;
-        }
-
-        // Post-game evaluation routing
         function endGame(winner) {
             gameActive = false;
-            if (winner === 'DRAW') {
-                id('modal-title').textContent = 'تعادل! 🤝';
-                id('modal-body').textContent = 'انتهت الشبكة بالتعادل دون فائز.';
-            } else {
-                if (winner === 'X') scoreX++; else scoreO++;
-                updateScoreUI();
-
-                const winnerName = winner === 'X' ? p1Name : p2Name;
-                id('modal-title').textContent = `🎉 تهانينا الفوز لـ ${winnerName}!`;
-                id('modal-body').textContent = `صاحب الرمز (${winner}) حقق خماسية متتالية بنجاح!`;
-
-                // Graphical highlighting loop for winning vectors
-                winningLine.forEach(pt => {
-                    const el = q(`.cell[data-r='${pt.r}'][data-c='${pt.c}']`);
-                    if(el) el.classList.add('glow');
-                });
-
-                // Audio asset triggering mapping local peer roles
-                if (peer && !isAI) {
-                    const mySym = isHost ? 'X' : 'O';
-                    if (winner === mySym) sndWin(); else sndLose();
-                } else {
-                    sndWin();
-                }
-            }
-
-            // Visual layout update loops
-            id('turn-indicator').textContent = 'انتهت الجولة';
-            id('turn-indicator').className = 'ended';
-            id('btn-rematch').disabled = false;
-
-            id('modal-sx').textContent = scoreX;
-            id('modal-so').textContent = scoreO;
-            id('modal').style.display = 'flex';
-        }
-
-        // Document Object Model element mutation systems
-        function updateScoreUI() {
+            if (winner === 'X') scoreX++; else scoreO++;
             id('score-x').textContent = scoreX;
             id('score-o').textContent = scoreO;
+            id('modal-body').textContent = `الفائز هو: ${winner === 'X' ? p1Name : p2Name}`;
+            id('modal').style.display = 'flex';
+            id('btn-rematch').disabled = false;
         }
 
         function updateTurnUI() {
             const ti = id('turn-indicator');
-            if (!gameActive) { ti.textContent = 'غير نشط'; ti.className = 'ended'; return; }
-            
-            if (isAI) {
-                if (curPlayer === 'X') { ti.textContent = '🎯 دورك'; ti.className = 'your-turn'; }
-                else { ti.textContent = '🤖 تفكير الآلي...'; ti.className = 'waiting'; }
+            if(isAI) {
+                ti.textContent = curPlayer === 'X' ? '🎯 دورك' : '🤖 تفكير...';
+                ti.className = curPlayer === 'X' ? 'your-turn' : 'waiting';
                 return;
             }
-
-            if (peer) {
-                const requiredSymbol = isHost ? 'X' : 'O';
-                if (curPlayer === requiredSymbol) { ti.textContent = '🎯 دورك!'; ti.className = 'your-turn'; }
-                else { ti.textContent = '⏳ دور الخصم'; ti.className = 'waiting'; }
+            if(peer) {
+                const mySym = isHost ? 'X' : 'O';
+                ti.textContent = curPlayer === mySym ? '🎯 دورك' : '⏳ دور الخصم';
+                ti.className = curPlayer === mySym ? 'your-turn' : 'waiting';
                 return;
             }
-
-            ti.textContent = `دور (${curPlayer})`;
-            ti.className = curPlayer === 'X' ? 'your-turn' : 'waiting';
+            ti.textContent = `دور ${curPlayer}`;
         }
 
-        function updateNamesUI() {
-            id('name-x-ui').textContent = p1Name;
-            id('name-o-ui').textContent = p2Name;
-            q('.pname-x').textContent = `X: ${p1Name}`;
-            q('.pname-o').textContent = `O: ${p2Name}`;
-        }
-
-        function updateConnUI(online, msg) {
-            const dot = id('conn-dot');
-            const txt = id('conn-text');
-            if (online) {
-                dot.className = 'online'; txt.textContent = msg || 'متصل';
-            } else {
-                dot.className = 'disconnected'; txt.textContent = msg || 'غير متصل';
-            }
-        }
-
-        function appendChat(author, text, type='msg') {
-            const box = id('chat-msgs');
-            const msg = document.createElement('div');
-            if (type === 'sys') {
-                msg.className = 'msg sys'; msg.textContent = text;
-            } else {
-                msg.className = `msg ${type}`;
-                msg.innerHTML = `<strong>${author}:</strong> ${text}`;
-                sndMsg();
-            }
-            box.appendChild(msg);
-            box.scrollTop = box.scrollHeight;
-        }
-
-        // Global Event triggers resetting and routing game environments
-        id('btn-reset-scores').addEventListener('click', () => {
-            scoreX = 0; scoreO = 0; updateScoreUI();
-            if(conn && conn.open) conn.send({ type: 'RESET_SCORES' });
+        id('modal-btn-rematch').addEventListener('click', () => {
+            id('modal').style.display = 'none';
+            if(isAI) { startNewMatch(); return; }
+            if(conn && conn.open) conn.send({ type: 'REQ_REMATCH' });
         });
 
-        id('btn-rematch').addEventListener('click', requestRematch);
-        id('modal-btn-rematch').addEventListener('click', () => { id('modal').style.display = 'none'; requestRematch(); });
-        id('modal-btn-close').addEventListener('click', () => id('modal').style.display = 'none');
+        id('btn-rematch').addEventListener('click', () => {
+            if(conn && conn.open) conn.send({ type: 'REQ_REMATCH' });
+        });
 
-        function requestRematch() {
-            if (isAI) { startLocalGame(true); return; }
-            if (!conn || !conn.open) return;
-
-            myReady = true;
-            id('btn-rematch').disabled = true;
-            id('btn-rematch').textContent = '⏳ بانتظار الموافقة';
-            id('btn-rematch').className = 'rematch-waiting';
-
-            conn.send({ type: 'REMATCH_REQUEST' });
-            evaluateRematchConsent();
-        }
-
-        function evaluateRematchConsent() {
-            if (myReady && opponentReady) {
-                myReady = false; opponentReady = false;
-                id('modal-rematch-status').classList.add('hidden');
-                resetRematchButtonUI();
-                startLocalGame(false);
-                if (isHost && conn && conn.open) {
-                    conn.send({ type: 'START_GAME', size: BOARD_SIZE });
-                }
-            }
-        }
-
-        function resetRematchButtonUI() {
-            const btn = id('btn-rematch');
-            btn.textContent = '🔄 جولة جديدة';
-            btn.className = '';
-            btn.disabled = true;
-        }
-
-        function startLocalGame(aiMode = false) {
-            isAI = aiMode;
-            initMatrix();
+        function startNewMatch() {
             renderBoard();
             curPlayer = 'X';
             gameActive = true;
             updateTurnUI();
-            id('modal').style.display = 'none';
-            resetRematchButtonUI();
+            id('btn-rematch').disabled = true;
         }
 
-        id('btn-lobby-return').addEventListener('click', () => {
-            if (confirm('هل تريد العودة للوبي وإنهاء الاتصال الحالي؟')) {
-                location.reload();
-            }
-        });
-
-        // Artificial Intelligence Engine (Minimax-Heuristics Mapping Architecture)
-        function executeAIMove() {
-            if (!gameActive || curPlayer !== 'O') return;
-            let bestScore = -Infinity;
-            let moves = getOrderedMoves();
-            if (moves.length === 0) return;
-            
-            let bestMove = moves[0];
-            
-            // Fallback to heuristic evaluation matching highest weight limits
-            for (let move of moves) {
-                let score = evaluateCellWeight(move.r, move.c, 'O') * 1.2 + evaluateCellWeight(move.r, move.c, 'X');
-                if (score > bestScore) { bestScore = score; bestMove = move; }
-            }
-
-            executeMove(bestMove.r, bestMove.c);
-        }
-
-        function getOrderedMoves() {
-            let list = [];
-            for(let r=0; r<BOARD_SIZE; r++) {
-                for(let c=0; c<BOARD_SIZE; c++) {
-                    if (board[r][c] === null && !isCellUsed(r, c)) {
-                        let weight = evaluateCellWeight(r, c, 'O') + evaluateCellWeight(r, c, 'X');
-                        if (weight > 0) list.push({r, c, w: weight});
-                    }
-                }
-            }
-            if (list.length === 0) {
-                let center = Math.floor(BOARD_SIZE/2);
-                if (board[center][center] === null) return [{r:center, c:center}];
-                return [];
-            }
-            return list.sort((a,b) => b.w - a.w);
-        }
-
-        function evaluateCellWeight(r, c, sym) {
-            let total = 0;
-            const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
-            for(let [dr, dc] of dirs) {
-                let consecutive = 0;
-                let openEnds = 0;
-                
-                // Scan Vector 1
-                let nr = r + dr, nc = c + dc;
-                while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { consecutive++; nr += dr; nc += dc; }
-                if(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === null) openEnds++;
-
-                // Scan Vector 2
-                nr = r - dr; nc = c - dc;
-                while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { consecutive++; nr -= dr; nc -= dc; }
-                if(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === null) openEnds++;
-
-                if (consecutive >= 4) total += 10000;
-                else if (consecutive === 3 && openEnds === 2) total += 2000;
-                else if (consecutive === 3 && openEnds === 1) total += 500;
-                else if (consecutive === 2 && openEnds === 2) total += 200;
-                else if (consecutive === 1) total += 10;
-            }
-            return total;
-        }
-
-        // ==========================================
-        // P2P Networking Infrastructure Initialization
-        // ==========================================
-
+        // ========== محرك اتصال الشبكة المطور ==========
         id('btn-vs-ai').addEventListener('click', () => {
-            p1Name = 'أنت'; p2Name = '🤖 الذكاء الآلي';
-            updateNamesUI();
+            p1Name = 'أنت'; p2Name = 'الحاسوب';
+            id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
             id('lobby').style.display = 'none';
-            startLocalGame(true);
+            isAI = true; startNewMatch();
         });
 
         id('btn-create').addEventListener('click', () => {
-            const status = id('status-msg');
-            status.textContent = '⚡ جاري إنشاء الاتصال مع الخادم العالي...';
-            status.className = 'status-wait';
-            id('btn-create').disabled = true;
-
-            myId3 = Math.floor(100 + Math.random() * 900).toString();
+            id('status-msg').textContent = '📡 جاري جلب اتصال آمن من الخادم السحابي...';
+            // توليد كود عشوائي مكون من 6 أرقام لتفادي حدوث أي تصادم أسماء على جيت هاب
+            const randCode = Math.floor(100000 + Math.random() * 900000).toString();
             isHost = true;
 
-            // Instantiating network configuration safely passing ICE configuration to avoid city/NAT drops
-            peer = new Peer(`q30-${myId3}`, peerIceConfig);
+            peer = new Peer('q30room-' + randCode, peerIceConfig);
 
-            peer.on('open', (id) => {
+            peer.on('open', () => {
                 id('phase-choose').classList.add('hidden');
                 id('phase-room').classList.remove('hidden');
-                id('room-id').textContent = myId3;
-                updateConnUI(false, 'بانتظار الخصم');
-                renderLobbyPlayers();
+                id('room-id').textContent = randCode;
+                id('conn-dot').className = 'disconnected';
+                id('conn-text').textContent = 'بانتظار الخصم';
+                renderLobbyList();
             });
 
-            peer.on('connection', (incomingConn) => {
-                if (conn) { incomingConn.close(); return; } // Refuse multi-participant links
-                conn = incomingConn;
-                setupConnectionDataListeners();
+            peer.on('connection', incoming => {
+                if(conn) { incoming.close(); return; }
+                conn = incoming; setupListeners();
             });
 
-            peer.on('error', (err) => {
+            peer.on('error', err => {
+                id('status-msg').textContent = '❌ عذراً، خادم الشبكة مشغول حالياً. أعد المحاولة.';
                 console.error(err);
-                status.textContent = '❌ خطأ بالاتصال بالشبكة المركزية، يرجى إعادة المحاولة.';
-                status.className = 'status-error';
-                id('btn-create').disabled = false;
             });
         });
 
         id('btn-join').addEventListener('click', () => {
-            const target = id('join-input').value.trim();
-            const status = id('status-msg');
-            if (target.length !== 3 || isNaN(target)) {
-                status.textContent = '⚠️ يرجى إدخال كود صحيح من 3 أرقام.';
-                status.className = 'status-warn'; return;
-            }
-
-            status.textContent = '🔍 جاري البحث والربط مع الغرفة...';
-            status.className = 'status-wait';
-            id('btn-join').disabled = true;
-
-            myId3 = Math.floor(100 + Math.random() * 900).toString();
+            const code = id('join-input').value.trim();
+            if(code.length !== 6) { id('status-msg').textContent = '⚠️ الكود يجب أن يكون 6 أرقام!'; return; }
+            id('status-msg').textContent = '🔍 جاري الاتصال بغرفة صديقك...';
             isHost = false;
 
-            peer = new Peer(`q30-client-${myId3}`, peerIceConfig);
+            peer = new Peer(null, peerIceConfig);
 
             peer.on('open', () => {
-                conn = peer.connect(`q30-${target}`, { reliable: true });
-                setupConnectionDataListeners();
+                conn = peer.connect('q30room-' + code, { reliable: true });
+                setupListeners();
             });
 
-            peer.on('error', (err) => {
-                console.error(err);
-                status.textContent = '❌ فشل الاتصال برقم الغرفة. تأكد من الرقم وصلاحية شبكة صديقك.';
-                status.className = 'status-error';
-                id('btn-join').disabled = false;
+            peer.on('error', err => {
+                id('status-msg').textContent = '❌ لم نتمكن من العثور على الغرفة. تأكد من الكود.';
             });
         });
 
-        function setupConnectionDataListeners() {
+        function setupListeners() {
             conn.on('open', () => {
                 id('lobby').style.display = 'none';
-                updateConnUI(true, 'متصل بالخصم');
-                
-                // Allow chat functionalities
-                id('chat-txt').disabled = false;
-                id('chat-send').disabled = false;
+                id('conn-dot').className = 'online';
+                id('conn-text').textContent = 'متصل الآن';
+                id('chat-txt').disabled = false; id('chat-send').disabled = false;
 
-                if (!isHost) {
-                    p1Name = 'صاحب الغرفة'; p2Name = 'أنت (زائر)';
-                    conn.send({ type: 'JOIN_ALERT', name: p2Name });
+                if(isHost) {
+                    p1Name = 'المضيف (أنت)'; p2Name = 'الضيف';
+                    conn.send({ type: 'SPECS', size: BOARD_SIZE });
                 } else {
-                    p1Name = 'أنت (المضيف)'; p2Name = 'اللاعب الثاني';
-                    conn.send({ type: 'ROOM_SPECS', size: BOARD_SIZE });
+                    p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
                 }
-                updateNamesUI();
-                renderLobbyPlayers();
+                id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
+                id('my-symbol').textContent = isHost ? '👤 أنت رمز X' : '👤 أنت رمز O';
+                renderLobbyList();
             });
 
-            conn.on('data', (data) => {
-                switch(data.type) {
-                    case 'ROOM_SPECS':
-                        BOARD_SIZE = data.size;
-                        renderBoard();
-                        break;
-                    case 'JOIN_ALERT':
-                        p2Name = data.name; updateNamesUI();
-                        appendChat('النظام', 'دخل خصمك للغرفة وهو مستعد للاتصال.', 'sys');
-                        renderLobbyPlayers();
-                        break;
-                    case 'MOVE':
-                        executeMove(data.r, data.c);
-                        break;
-                    case 'CHAT':
-                        appendChat('الخصم', data.text, 'other');
-                        break;
-                    case 'RESET_SCORES':
-                        scoreX = 0; scoreO = 0; updateScoreUI();
-                        break;
-                    case 'REMATCH_REQUEST':
-                        opponentReady = true;
-                        id('modal-rematch-status').classList.remove('hidden');
-                        if (myReady) { evaluateRematchConsent(); }
-                        else {
-                            id('btn-rematch').classList.add('rematch-pending');
-                            id('btn-rematch').textContent = '⚡ وافق على جولة جديدة!';
-                            id('btn-rematch').disabled = false;
-                        }
-                        break;
-                    case 'START_GAME':
-                        BOARD_SIZE = data.size;
-                        startLocalGame(false);
-                        break;
-                    case 'READY_STATE':
-                        opponentReady = data.ready;
-                        renderLobbyPlayers();
-                        if(gameActive === false && opponentReady && myReady && isHost) {
-                            startNetworkMatch();
-                        }
-                        break;
+            conn.on('data', data => {
+                if(data.type === 'SPECS') { BOARD_SIZE = data.size; renderBoard(); }
+                if(data.type === 'MOVE') { executeMove(data.r, data.c); }
+                if(data.type === 'CHAT') { appendChat('الخصم', data.text, 'other'); }
+                if(data.type === 'READY') { opponentReady = data.val; renderLobbyList(); checkBothReady(); }
+                if(data.type === 'START') { startNewMatch(); }
+                if(data.type === 'REQ_REMATCH') {
+                    if(confirm('طلب الخصم بدء جولة جديدة، هل توافق؟')) {
+                        conn.send({ type: 'START' }); startNewMatch();
+                    }
                 }
             });
 
-            conn.on('close', () => {
-                alert('قطع الخصم الاتصال أو أغلق الغرفة بشكل مفاجئ.');
-                location.reload();
-            });
-        }
-
-        function renderLobbyPlayers() {
-            const list = id('lobby-players-list');
-            if(!list) return;
-            list.innerHTML = '';
-
-            const p1Row = document.createElement('div');
-            p1Row.className = `mp-player-row ${isHost?'me':''}`;
-            p1Row.innerHTML = `<span>${isHost?'أنت':'صاحب الغرفة'} <span class="host-badge">مضيف</span></span>
-                               <span class="ready-badge ok">متصل</span>`;
-            list.appendChild(p1Row);
-
-            if(conn && conn.open) {
-                const p2Row = document.createElement('div');
-                p2Row.className = `mp-player-row ${!isHost?'me':''}`;
-                const readyText = opponentReady ? 'مستعد' : 'جاري التحضير';
-                const readyClass = opponentReady ? 'ready-yes' : 'ready-no';
-                p2Row.innerHTML = `<span>${!isHost?'أنت':'الضيف الآتي'}</span>
-                                   <span class="ready-badge ${readyClass}">${readyText}</span>`;
-                list.appendChild(p2Row);
-            }
+            conn.on('close', () => { alert('انقطع الاتصال باللاعب الآخر.'); location.reload(); });
         }
 
         id('btn-ready-toggle').addEventListener('click', function() {
-            if(!conn || !conn.open) { alert('بانتظار دخول صديقك أولاً قبل بدء الجاهزية.'); return; }
+            if(!conn) { alert('يجب أن يدخل لاعب آخر أولاً للغرفة!'); return; }
             myReady = !myReady;
-            
-            if(myReady) {
-                this.textContent = '⏳ إلغاء الاستعداد';
-                this.style.background = '#e74c3c';
-            } else {
-                this.textContent = '✋ أنا مستعد';
-                this.style.background = 'linear-gradient(135deg,#27ae60,#2ecc71)';
-            }
-
-            conn.send({ type: 'READY_STATE', ready: myReady });
-            
-            if(myReady && opponentReady && isHost) {
-                startNetworkMatch();
-            }
+            this.textContent = myReady ? '⏳ مستعد (إلغاء)' : '✋ أنا مستعد';
+            this.style.background = myReady ? '#e74c3c' : '#27ae60';
+            conn.send({ type: 'READY', val: myReady });
+            checkBothReady();
         });
 
-        function startNetworkMatch() {
-            myReady = false; opponentReady = false;
-            conn.send({ type: 'START_GAME', size: BOARD_SIZE });
-            startLocalGame(false);
+        function checkBothReady() {
+            if(myReady && opponentReady && isHost) {
+                conn.send({ type: 'START' });
+                startNewMatch();
+            }
         }
 
-        id('chat-input').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const input = id('chat-txt');
-            const txt = input.value.trim();
-            if(!txt || !conn || !conn.open) return;
+        function renderLobbyList() {
+            const list = id('lobby-players-list');
+            list.innerHTML = `
+                <div class="mp-player-row"><span>🏠 منشئ الغرفة</span><span class="ready-badge ready-yes">متصل</span></div>
+                <div class="mp-player-row"><span>👥 الخصم الثاني</span><span class="ready-badge ${opponentReady?'ready-yes':'ready-no'}">${opponentReady?'مستعد':'ينتظر'}</span></div>
+            `;
+        }
 
+        function appendChat(user, text, style) {
+            const m = document.createElement('div'); m.className = `msg ${style}`;
+            m.innerHTML = `<strong>${user}:</strong> ${text}`;
+            id('chat-msgs').appendChild(m);
+            id('chat-msgs').scrollTop = id('chat-msgs').scrollHeight;
+        }
+
+        id('chat-input').addEventListener('submit', () => {
+            const txt = id('chat-txt').value.trim(); if(!txt) return;
             conn.send({ type: 'CHAT', text: txt });
-            appendChat('أنت', txt, 'me');
-            input.value = '';
+            appendChat('أنت', txt, 'me'); id('chat-txt').value = '';
         });
 
-        // Setup base layout initialization triggers
+        // ذكاء اصطناعي بسيط للحاسوب
+        function executeAIMove() {
+            let options = [];
+            for(let r=0; r<BOARD_SIZE; r++) {
+                for(let c=0; c<BOARD_SIZE; c++) { if(board[r][c] === null) options.push({r,c}); }
+            }
+            if(options.length > 0) {
+                let choice = options[Math.floor(Math.random() * options.length)];
+                executeMove(choice.r, choice.c);
+            }
+        }
+
         renderBoard();
     </script>
 </body>
