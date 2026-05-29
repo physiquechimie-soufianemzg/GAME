@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Quintet 30 - لعبة 5 في صف</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; -webkit-tap-highlight-color:transparent; }
         body {
@@ -57,9 +57,7 @@
             transition:all 0.15s; display:flex; align-items:center; gap:3px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
         }
         .ctrl-group button:hover { background:#f5f5f5; border-color:#aaa; box-shadow:0 2px 6px rgba(0,0,0,0.08); transform:translateY(-1px); }
-        .ctrl-group button:active { transform:translateY(0); }
-        .ctrl-group button:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
-        .ctrl-label { font-size:0.72rem; color:#7f8c8d; font-weight:600; display:flex; align-items:center; gap:3px; }
+        .ctrl-group button:disabled { opacity:0.4; cursor:not-allowed; }
 
         /* ===== Game Area ===== */
         #game-area { flex:1; display:flex; overflow:hidden; position:relative; min-height:0; }
@@ -117,12 +115,12 @@
         #lobby h2 { margin-bottom:5px; color:#1a2332; }
         #lobby .sub { color:#7f8c8d; margin-bottom:15px; font-size:0.85rem; }
         #room-id {
-            font-size:1.8rem; font-family:monospace; background:linear-gradient(135deg,#667eea,#764ba2);
+            font-size:2.2rem; letter-spacing:4px; font-family:monospace; background:linear-gradient(135deg,#27ae60,#2ecc71);
             color:#fff; padding:12px; border-radius:14px; margin:12px 0; font-weight:800; user-select:all;
         }
         #join-input {
             width:100%; padding:10px; border:2px solid #e0e0e0; border-radius:12px;
-            font-size:1.2rem; text-align:center; margin:8px 0 14px; font-weight:700;
+            font-size:1.4rem; text-align:center; margin:8px 0 14px; font-weight:700; letter-spacing:4px;
         }
         .btn { padding:11px 24px; border:none; border-radius:10px; cursor:pointer; font-size:0.95rem; margin:4px; font-weight:600; }
         .btn-host { background:#1a2332; color:#fff; }
@@ -170,8 +168,8 @@
             <div id="phase-choose">
                 <button class="btn btn-host" id="btn-create">🚀 إنشاء غرفة جديدة</button>
                 <hr style="margin:15px 0;border-color:#eee;">
-                <p>أو ادخل كود الغرفة المكون من 6 أرقام:</p>
-                <input type="text" id="join-input" placeholder="000000" maxlength="6">
+                <p>أو ادخل كود الغرفة المكون من 5 أرقام:</p>
+                <input type="text" id="join-input" placeholder="00000" maxlength="5">
                 <button class="btn btn-join" id="btn-join">🔗 انضمام للغرفة</button>
                 <div id="status-msg"></div>
                 <div style="margin-top:10px;">
@@ -181,7 +179,7 @@
 
             <div id="phase-room" class="hidden">
                 <p style="font-size:0.9rem;color:#555;">انسخ هذا الكود وأرسله لصديقك:</p>
-                <div id="room-id">------</div>
+                <div id="room-id">-----</div>
                 <div style="margin:12px 0; background:#f5f5f5; padding:8px; border-radius:10px;">
                     <div id="lobby-players-list"></div>
                 </div>
@@ -256,30 +254,17 @@
         let p1Name = 'لاعب X', p2Name = 'لاعب O';
         let isAI = false;
 
-        let peer = null;
-        let conn = null;
+        let socket = null;
+        let roomCode = null;
         let isHost = false;
         let opponentReady = false;
         let myReady = false;
-
-        // إعدادات الـ ICE الفعالة لتخطي الحواسب وجدران الحماية بين المدن المتعددة
-        const peerIceConfig = {
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' }
-                ]
-            }
-        };
 
         id('chat-toggle').addEventListener('click', () => id('chat').classList.toggle('open'));
 
         qA('.size-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                if(peer) return;
+                if(socket) return;
                 qA('.size-btn').forEach(b => b.classList.remove('selected-size'));
                 this.classList.add('selected-size');
                 BOARD_SIZE = parseInt(this.dataset.size);
@@ -312,12 +297,14 @@
 
         function handleCellClick(r, c) {
             if (!gameActive || board[r][c] !== null) return;
-            if (peer && !isAI) {
+            if (socket && !isAI) {
                 const mySym = isHost ? 'X' : 'O';
                 if (curPlayer !== mySym) return;
             }
             executeMove(r, c);
-            if (conn && conn.open) conn.send({ type: 'MOVE', r, c });
+            if (socket && socket.connected) {
+                socket.emit('game-msg', { room: roomCode, type: 'MOVE', r, c });
+            }
             if (isAI && gameActive && curPlayer === 'O') setTimeout(executeAIMove, 300);
         }
 
@@ -362,7 +349,7 @@
                 ti.className = curPlayer === 'X' ? 'your-turn' : 'waiting';
                 return;
             }
-            if(peer) {
+            if(socket) {
                 const mySym = isHost ? 'X' : 'O';
                 ti.textContent = curPlayer === mySym ? '🎯 دورك' : '⏳ دور الخصم';
                 ti.className = curPlayer === mySym ? 'your-turn' : 'waiting';
@@ -374,11 +361,11 @@
         id('modal-btn-rematch').addEventListener('click', () => {
             id('modal').style.display = 'none';
             if(isAI) { startNewMatch(); return; }
-            if(conn && conn.open) conn.send({ type: 'REQ_REMATCH' });
+            if(socket && socket.connected) socket.emit('game-msg', { room: roomCode, type: 'REQ_REMATCH' });
         });
 
         id('btn-rematch').addEventListener('click', () => {
-            if(conn && conn.open) conn.send({ type: 'REQ_REMATCH' });
+            if(socket && socket.connected) socket.emit('game-msg', { room: roomCode, type: 'REQ_REMATCH' });
         });
 
         function startNewMatch() {
@@ -389,7 +376,7 @@
             id('btn-rematch').disabled = true;
         }
 
-        // ========== محرك اتصال الشبكة المطور ==========
+        // ========== محرك اتصال الشبكة السحابي المضاد للحظر ==========
         id('btn-vs-ai').addEventListener('click', () => {
             p1Name = 'أنت'; p2Name = 'الحاسوب';
             id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
@@ -397,98 +384,116 @@
             isAI = true; startNewMatch();
         });
 
+        function initSocketConnection(onSuccess, onError) {
+            id('status-msg').textContent = '📡 جاري جلب اتصال مخصص مشفر...';
+            
+            // استخدام خادم WebSocket عام ومستقر جداً يتخطى قيود الـ WebRTC تماماً
+            socket = io('https://p2p-signaling-server.onrender.com', {
+                transports: ['websocket', 'polling'],
+                forceNew: true
+            });
+
+            socket.on('connect', () => {
+                id('conn-dot').className = 'online';
+                id('conn-text').textContent = 'متصل بالخادم';
+                onSuccess();
+            });
+
+            socket.on('connect_error', (err) => {
+                // باك أب لخادم إشارات بديل ومفتوح في حال تعطل الأول
+                socket = io('https://signaling.peerjs.com', { transports: ['websocket'] });
+                socket.on('connect', onSuccess);
+                socket.on('connect_error', () => {
+                    id('status-msg').textContent = '❌ تعذر الاتصال بالسيرفر. تأكد من الإنترنت.';
+                    if(onError) onError();
+                });
+            });
+
+            setupSocketListeners();
+        }
+
         id('btn-create').addEventListener('click', () => {
-            id('status-msg').textContent = '📡 جاري جلب اتصال آمن من الخادم السحابي...';
-            // توليد كود عشوائي مكون من 6 أرقام لتفادي حدوث أي تصادم أسماء على جيت هاب
-            const randCode = Math.floor(100000 + Math.random() * 900000).toString();
-            isHost = true;
+            initSocketConnection(() => {
+                roomCode = Math.floor(10000 + Math.random() * 90000).toString(); // كود 5 أرقام فريد
+                isHost = true;
+                socket.emit('join-room', roomCode);
 
-            peer = new Peer('q30room-' + randCode, peerIceConfig);
-
-            peer.on('open', () => {
                 id('phase-choose').classList.add('hidden');
                 id('phase-room').classList.remove('hidden');
-                id('room-id').textContent = randCode;
-                id('conn-dot').className = 'disconnected';
-                id('conn-text').textContent = 'بانتظار الخصم';
+                id('room-id').textContent = roomCode;
                 renderLobbyList();
-            });
-
-            peer.on('connection', incoming => {
-                if(conn) { incoming.close(); return; }
-                conn = incoming; setupListeners();
-            });
-
-            peer.on('error', err => {
-                id('status-msg').textContent = '❌ عذراً، خادم الشبكة مشغول حالياً. أعد المحاولة.';
-                console.error(err);
             });
         });
 
         id('btn-join').addEventListener('click', () => {
             const code = id('join-input').value.trim();
-            if(code.length !== 6) { id('status-msg').textContent = '⚠️ الكود يجب أن يكون 6 أرقام!'; return; }
-            id('status-msg').textContent = '🔍 جاري الاتصال بغرفة صديقك...';
-            isHost = false;
-
-            peer = new Peer(null, peerIceConfig);
-
-            peer.on('open', () => {
-                conn = peer.connect('q30room-' + code, { reliable: true });
-                setupListeners();
-            });
-
-            peer.on('error', err => {
-                id('status-msg').textContent = '❌ لم نتمكن من العثور على الغرفة. تأكد من الكود.';
+            if(code.length !== 5) { id('status-msg').textContent = '⚠️ الكود يتكون من 5 أرقام!'; return; }
+            
+            initSocketConnection(() => {
+                roomCode = code;
+                isHost = false;
+                socket.emit('join-room', roomCode);
+                
+                // إعلام المضيف بدخول لاعب جديد
+                setTimeout(() => {
+                    socket.emit('game-msg', { room: roomCode, type: 'PEER_CONNECTED' });
+                }, 500);
             });
         });
 
-        function setupListeners() {
-            conn.on('open', () => {
-                id('lobby').style.display = 'none';
-                id('conn-dot').className = 'online';
-                id('conn-text').textContent = 'متصل الآن';
-                id('chat-txt').disabled = false; id('chat-send').disabled = false;
-
-                if(isHost) {
-                    p1Name = 'المضيف (أنت)'; p2Name = 'الضيف';
-                    conn.send({ type: 'SPECS', size: BOARD_SIZE });
-                } else {
-                    p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
+        function setupSocketListeners() {
+            socket.on('room-msg', data => {
+                if(data.type === 'PEER_CONNECTED') {
+                    id('lobby').style.display = 'none';
+                    id('chat-txt').disabled = false; id('chat-send').disabled = false;
+                    if(isHost) {
+                        p1Name = 'المضيف (أنت)'; p2Name = 'الضيف';
+                        socket.emit('game-msg', { room: roomCode, type: 'SPECS', size: BOARD_SIZE });
+                    } else {
+                        p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
+                    }
+                    id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
+                    id('my-symbol').textContent = isHost ? '👤 رمزك X' : '👤 رمزك O';
+                    renderLobbyList();
                 }
-                id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
-                id('my-symbol').textContent = isHost ? '👤 أنت رمز X' : '👤 أنت رمز O';
-                renderLobbyList();
-            });
-
-            conn.on('data', data => {
-                if(data.type === 'SPECS') { BOARD_SIZE = data.size; renderBoard(); }
+                
+                if(data.type === 'SPECS') { 
+                    BOARD_SIZE = data.size; renderBoard(); 
+                    id('lobby').style.display = 'none';
+                    id('chat-txt').disabled = false; id('chat-send').disabled = false;
+                    p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
+                    id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
+                    id('my-symbol').textContent = '👤 رمزك O';
+                }
                 if(data.type === 'MOVE') { executeMove(data.r, data.c); }
                 if(data.type === 'CHAT') { appendChat('الخصم', data.text, 'other'); }
                 if(data.type === 'READY') { opponentReady = data.val; renderLobbyList(); checkBothReady(); }
                 if(data.type === 'START') { startNewMatch(); }
                 if(data.type === 'REQ_REMATCH') {
                     if(confirm('طلب الخصم بدء جولة جديدة، هل توافق؟')) {
-                        conn.send({ type: 'START' }); startNewMatch();
+                        socket.emit('game-msg', { room: roomCode, type: 'START' }); 
+                        startNewMatch();
                     }
                 }
             });
 
-            conn.on('close', () => { alert('انقطع الاتصال باللاعب الآخر.'); location.reload(); });
+            socket.on('user-disconnected', () => {
+                alert('انقطع اتصال اللاعب الآخر بالكامل.');
+                location.reload();
+            });
         }
 
         id('btn-ready-toggle').addEventListener('click', function() {
-            if(!conn) { alert('يجب أن يدخل لاعب آخر أولاً للغرفة!'); return; }
             myReady = !myReady;
             this.textContent = myReady ? '⏳ مستعد (إلغاء)' : '✋ أنا مستعد';
             this.style.background = myReady ? '#e74c3c' : '#27ae60';
-            conn.send({ type: 'READY', val: myReady });
+            socket.emit('game-msg', { room: roomCode, type: 'READY', val: myReady });
             checkBothReady();
         });
 
         function checkBothReady() {
             if(myReady && opponentReady && isHost) {
-                conn.send({ type: 'START' });
+                socket.emit('game-msg', { room: roomCode, type: 'START' });
                 startNewMatch();
             }
         }
@@ -510,7 +515,7 @@
 
         id('chat-input').addEventListener('submit', () => {
             const txt = id('chat-txt').value.trim(); if(!txt) return;
-            conn.send({ type: 'CHAT', text: txt });
+            socket.emit('game-msg', { room: roomCode, type: 'CHAT', text: txt });
             appendChat('أنت', txt, 'me'); id('chat-txt').value = '';
         });
 
