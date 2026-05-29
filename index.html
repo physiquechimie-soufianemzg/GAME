@@ -1336,39 +1336,26 @@
             };
         });
 
-        function getIceConfig() {
-            return {iceServers:[
-                {urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302','stun:stun3.l.google.com:19302']},
-                {urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject'},
-                {urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject'}
-            ]};
-        }
         function getPeerOpts() {
             const custom = id('peer-server-input').value.trim();
             if (custom) {
                 peerServer = custom;
-                if (custom.includes(':')) { const sp=custom.split(':'); return {host:sp[0], port:parseInt(sp[1])||9000, secure:false, key:'peerjs', config:getIceConfig()}; }
-                return {host:custom, port:443, secure:true, key:'peerjs', config:getIceConfig()};
+                if (custom.includes(':')) {
+                    const sp = custom.split(':');
+                    return {host: sp[0], port: parseInt(sp[1]) || 9000, secure: false};
+                }
+                return {host: custom, port: 443, secure: true};
             }
-            return {host:'0.peerjs.com', port:443, secure:true, key:'peerjs', config:getIceConfig()};
+            return {host: '0.peerjs.com', port: 443, secure: true};
         }
         function tryCreatePeer(code, retry) {
-            if (retry > 10) {
-                id('status-msg').textContent = '❌ فشل إنشاء الغرفة بعد 10 محاولات. جرب خادماً آخر في الإعدادات أو افحص اتصالك';
-                id('status-msg').className = 'status-error'; return;
-            }
+            if (retry > 10) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة'; id('status-msg').className = 'status-error'; return; }
             id('status-msg').textContent = retry > 0 ? `🔄 المحاولة ${retry}/10...` : '🔄 جاري الإنشاء...';
             id('status-msg').className = 'status-wait';
             const opts = getPeerOpts();
-            const p = new Peer(code, opts); 
+            const p = new Peer(code, opts);
             peer = p;
-            const openTimer = setTimeout(() => {
-                if (!id('phase-host').classList.contains('hidden')) return;
-                id('status-msg').textContent = '⏳ الخادم بطيء، جاري الانتظار...';
-                id('status-msg').className = 'status-wait';
-            }, 5000);
             p.on('open', id2 => {
-                clearTimeout(openTimer);
                 if (id2 === code) {
                     roomCode = code; id('room-id').textContent = code;
                     id('phase-choose').classList.add('hidden');
@@ -1379,19 +1366,13 @@
                 }
             });
             p.on('error', err => {
-                clearTimeout(openTimer);
                 if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
                     p.destroy(); const nc = genCode();
                     setTimeout(() => tryCreatePeer(nc, retry + 1), 300);
                 } else {
-                    id('status-msg').textContent = `❌ ${err.type} - تحقق من إعدادات الخادم`;
+                    id('status-msg').textContent = `❌ ${err.type}`;
                     id('status-msg').className = 'status-error';
                 }
-            });
-            p.on('disconnected', () => {
-                id('status-msg').textContent = '🔄 انقطع الاتصال، جاري إعادة الاتصال...'; id('status-msg').className = 'status-wait';
-                p.reconnect();
-                setTimeout(() => { if (p.disconnected) { id('status-msg').textContent = '❌ فشل إعادة الاتصال'; id('status-msg').className = 'status-error'; }}, 10000);
             });
             p.on('connection', c => {
                 conn = c; isHost = true; mySym = 'X';
@@ -1401,11 +1382,28 @@
                 });
             });
         }
-
         id('btn-adv').onclick = () => {
             const el = id('adv-settings');
             el.classList.toggle('hidden');
             id('btn-adv').textContent = el.classList.contains('hidden') ? '⚙️ إعدادات متقدمة' : '⚙️ إخفاء الإعدادات';
+        };
+        id('btn-test-peer').onclick = () => {
+            const result = id('test-peer-result');
+            result.textContent = '🔄 جاري الاختبار...'; result.style.color = '#888';
+            const p = new Peer('test' + Math.random().toString(36).substr(2,6), getPeerOpts());
+            const t = setTimeout(() => { p.destroy(); result.textContent = '❌ لا يستجيب'; result.style.color = '#e74c3c'; }, 8000);
+            p.on('open', () => { clearTimeout(t); p.destroy(); result.textContent = `✅ ${peerServer} يعمل`; result.style.color = '#27ae60'; });
+            p.on('error', err => { clearTimeout(t); p.destroy(); if (err.type === 'unavailable-id') { result.textContent = `✅ ${peerServer} يعمل`; result.style.color = '#27ae60'; } else { result.textContent = `❌ ${err.type}`; result.style.color = '#e74c3c'; } });
+        };
+        id('btn-create').onclick = () => { tryCreatePeer(genCode(), 0); };
+        id('btn-cancel').onclick = () => {
+            try { if (conn && conn.open) conn.send({type:'cancel'}); } catch(e) {}
+            if (peer) { setTimeout(() => { peer.destroy(); peer = null; }, 100); }
+            conn = null;
+            id('phase-host').classList.add('hidden');
+            id('phase-choose').classList.remove('hidden');
+            id('phase-names').classList.add('hidden');
+            id('status-msg').textContent = '';
         };
         id('btn-test-peer').onclick = () => {
             const result = id('test-peer-result');
@@ -1483,7 +1481,7 @@
             }, 6000);
             p.on('open', () => {
                 clearTimeout(peerTimeout);
-                const c = p.connect(code, {timeout:30000});
+                const c = p.connect(code, {timeout:15000});
                 conn = c;
                 const timeout = setTimeout(() => {
                     if (!c.open) {
@@ -1492,12 +1490,12 @@
                             p.destroy(); peer = null;
                             tryJoin(code);
                         } else {
-                            id('status-msg').textContent = '❌ انتهت المهلة بعد 3 محاولات. تحقق من كود الغرفة أو غيّر الخادم';
+                            id('status-msg').textContent = '❌ انتهت المهلة بعد 3 محاولات';
                             id('status-msg').className = 'status-error';
                             joinRetries = 0;
                         }
                     }
-                }, 25000);
+                }, 15000);
                 c.on('open', () => {
                     clearTimeout(timeout);
                     joinRetries = 0;
@@ -1506,24 +1504,17 @@
                 });
                 c.on('error', err => {
                     clearTimeout(timeout);
-                    console.error('[Quintet30] P2P connection error:', err);
                     const msg = err.message || err.type || 'الغرفة غير موجودة';
-                    id('status-msg').textContent = `❌ ${msg}. تأكد من أن المضيف لا يزال في الغرفة`;
+                    id('status-msg').textContent = `❌ ${msg}`;
                     id('status-msg').className = 'status-error';
                 });
             });
             p.on('error', err => {
                 clearTimeout(peerTimeout);
-                id('status-msg').textContent = `❌ ${err.type || 'فشل الاتصال بالخادم'}. حاول تغيير الخادم في الإعدادات`;
+                id('status-msg').textContent = `❌ ${err.type || 'فشل الاتصال'}`;
                 id('status-msg').className = 'status-error';
             });
-            p.on('disconnected', () => {
-                id('status-msg').textContent = '🔄 انقطع الاتصال، جاري إعادة الاتصال...'; id('status-msg').className = 'status-wait';
-                p.reconnect();
-                setTimeout(() => { if (p.disconnected) { id('status-msg').textContent = '❌ فشل إعادة الاتصال'; id('status-msg').className = 'status-error'; }}, 10000);
-            });
         }
-
         id('btn-join').onclick = () => {
             const code = id('join-input').value.trim();
             if (!/^\d{3}$/.test(code)) { alert('أدخل 3 أرقام صحيحة'); return; }
@@ -1672,11 +1663,6 @@
                     }
                 }
             });
-            p.on('disconnected', () => {
-                id('mp-status-msg').textContent = '🔄 انقطع الاتصال، جاري إعادة الاتصال...'; id('mp-status-msg').className = 'status-wait';
-                p.reconnect();
-                setTimeout(() => { if (p.disconnected) { id('mp-status-msg').textContent = '❌ فشل إعادة الاتصال'; id('mp-status-msg').className = 'status-error'; }}, 10000);
-            });
             p.on('error', err => {
                 if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
                     p.destroy(); setTimeout(() => mpTryCreate(mpGenCode(), mpCreateRetries + 1), 300);
@@ -1730,11 +1716,6 @@
                 c.on('error', () => {
                     id('mp-join-status').textContent = '❌ فشل الاتصال - جرب خادماً آخر في الإعدادات المتقدمة'; id('mp-join-status').className = 'status-error';
                 });
-            });
-            p.on('disconnected', () => {
-                id('mp-join-status').textContent = '🔄 انقطع الاتصال، جاري إعادة الاتصال...'; id('mp-join-status').className = 'status-wait';
-                p.reconnect();
-                setTimeout(() => { if (p.disconnected) { id('mp-join-status').textContent = '❌ فشل إعادة الاتصال'; }}, 10000);
             });
             p.on('error', () => {
                 id('mp-join-status').textContent = '❌ فشل في الاتصال بالخادم - جرب خادماً آخر في الإعدادات المتقدمة'; id('mp-join-status').className = 'status-error';
@@ -2816,11 +2797,6 @@
         updateTurnUI();
         updateConnUI(false, 'غير متصل');
         updateNamesUI();
-        // Warn if not served over HTTPS
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && !location.href.startsWith('file://')) {
-            const w = id('status-msg');
-            if (w && !w.textContent) { w.textContent = '⚠️ استخدم HTTPS للتشغيل (WebRTC لا يعمل على HTTP)'; w.className = 'status-warn'; }
-        }
     </script>
 </body>
 </html>
