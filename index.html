@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Quintet 30 - لعبة 5 في صف</title>
+    <title>Quintet 30 - لعبة 5 في صف الفورية</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; -webkit-tap-highlight-color:transparent; }
         body {
@@ -14,262 +14,137 @@
         /* ===== Header ===== */
         #header {
             background:linear-gradient(135deg,#1a2332 0%,#243447 100%);
-            color:#fff; padding:5px 14px; display:flex; justify-content:space-between; align-items:center;
-            box-shadow:0 3px 15px rgba(0,0,0,0.2); z-index:10; flex-shrink:0; flex-wrap:wrap; gap:3px 10px;
-            border-bottom:2px solid rgba(241,196,15,0.3);
+            color:#fff; padding:8px 14px; display:flex; justify-content:space-between; align-items:center;
+            box-shadow:0 3px 15px rgba(0,0,0,0.2); z-index:10; flex-shrink:0;
+            border-bottom:2px solid #f1c40f;
         }
-        #logo { font-size:1.15rem; font-weight:700; letter-spacing:0.5px; background:linear-gradient(135deg,#fff,#f1c40f); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-        #logo span { -webkit-text-fill-color:#f1c40f; }
-        #scores { display:flex; gap:12px; font-size:0.9rem; }
+        #logo { font-size:1.2rem; font-weight:700; color:#f1c40f; }
+        #scores { display:flex; gap:15px; font-size:0.95rem; }
         .score-x { color:#5dade2; font-weight:700; } .score-o { color:#ec7063; font-weight:700; }
-        .score-num { display:inline-block; min-width:18px; text-align:center; font-weight:700; color:#fff; }
-        #turn-box { display:flex; align-items:center; gap:8px; }
+        .score-num { background:rgba(255,255,255,0.15); padding:2px 8px; border-radius:5px; margin-right:4px; }
         #turn-indicator {
-            padding:4px 14px; border-radius:20px; font-weight:700; font-size:0.8rem;
-            min-width:95px; text-align:center; border:1px solid rgba(255,255,255,0.1);
-            transition:all 0.3s; backdrop-filter:blur(4px);
+            padding:4px 14px; border-radius:20px; font-weight:700; font-size:0.85rem;
+            background:#27ae60; color:#fff; min-width:110px; text-align:center;
         }
-        #turn-indicator.your-turn { background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; box-shadow:0 0 20px rgba(46,204,113,0.3); border-color:rgba(46,204,113,0.3); }
-        #turn-indicator.waiting { background:linear-gradient(135deg,#2980b9,#3498db); color:#fff; box-shadow:0 0 15px rgba(52,152,219,0.2); }
-        #turn-indicator.ended { background:linear-gradient(135deg,#7f8c8d,#95a5a6); color:#fff; }
-        #my-symbol { font-size:0.8rem; background:rgba(255,255,255,0.08); padding:2px 10px; border-radius:12px; border:1px solid rgba(255,255,255,0.06); white-space:nowrap; }
-        #player-names { font-size:0.72rem; color:rgba(255,255,255,0.6); display:flex; gap:8px; }
-        #player-names .pname-x { color:#5dade2; }
-        #player-names .pname-o { color:#ec7063; }
-        #conn-status { display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; background:rgba(0,0,0,0.2); padding:2px 10px 2px 8px; border-radius:12px; }
-        #conn-dot { width:7px; height:7px; border-radius:50%; background:#e74c3c; display:inline-block; transition:all 0.3s; }
-        #conn-dot.online { background:#27ae60; box-shadow:0 0 8px rgba(46,204,113,0.6); animation:none; }
-        #conn-dot.disconnected { background:#e74c3c; animation:pulse 1s infinite; box-shadow:0 0 8px rgba(231,76,60,0.4); }
-        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+        #turn-indicator.waiting { background:#e67e22; }
 
         /* ===== Control Bar ===== */
         #ctrl-bar {
-            background:rgba(255,255,255,0.85); backdrop-filter:blur(8px);
-            border-bottom:1px solid rgba(0,0,0,0.06);
-            display:flex; align-items:center; justify-content:space-between;
-            padding:5px 14px; flex-shrink:0; gap:6px; flex-wrap:wrap;
+            background:rgba(255,255,255,0.9); padding:8px 14px; display:flex; 
+            justify-content:space-between; align-items:center; border-bottom:1px solid #ddd;
         }
-        .ctrl-group { display:flex; align-items:center; gap:4px; }
-        .ctrl-group button {
-            padding:4px 10px; border:1px solid #d0d0d0; border-radius:8px;
-            background:#fff; cursor:pointer; font-size:0.78rem; font-weight:500;
-            transition:all 0.15s; display:flex; align-items:center; gap:3px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
+        .btn-action {
+            padding:6px 12px; background:#3498db; color:#fff; border:none; 
+            border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;
         }
-        .ctrl-group button:hover { background:#f5f5f5; border-color:#aaa; box-shadow:0 2px 6px rgba(0,0,0,0.08); transform:translateY(-1px); }
-        .ctrl-group button:disabled { opacity:0.4; cursor:not-allowed; }
+        .btn-action:hover { background:#2980b9; }
 
         /* ===== Game Area ===== */
-        #game-area { flex:1; display:flex; overflow:hidden; position:relative; min-height:0; }
-        #board-container {
-            flex:1; overflow:auto; background:
-                radial-gradient(circle at 20% 50%, rgba(241,196,15,0.03) 0%, transparent 50%),
-                radial-gradient(circle at 80% 50%, rgba(52,152,219,0.03) 0%, transparent 50%),
-                linear-gradient(135deg,#e8e0d5 0%,#f5f0e6 50%,#e0d8cc 100%);
-            position:relative; cursor:crosshair;
-        }
-        #board { position:relative; transform-origin:top right; transition:transform 0.2s ease; }
+        #game-area { flex:1; display:flex; overflow:hidden; position:relative; }
+        #board-container { flex:1; overflow:auto; position:relative; background:#faf7f2; }
+        #board { position:relative; }
 
         /* ===== Cells ===== */
         .cell {
-            position:absolute; width:28px; height:28px;
-            border:1px solid rgba(26,35,50,0.25);
+            position:absolute; width:30px; height:30px;
+            border:1px solid rgba(26,35,50,0.18);
             display:flex; align-items:center; justify-content:center;
-            font-size:17px; font-weight:700; transition:all 0.12s ease;
-            cursor:pointer; user-select:none; background:#faf7f2; z-index:1;
+            font-size:18px; font-weight:700; cursor:pointer; user-select:none; background:#fff;
         }
-        .cell:hover { background:rgba(52,152,219,0.1); border-color:rgba(52,152,219,0.3); z-index:2; transform:scale(1.04); }
-        .cell.x { color:#3498db; background:linear-gradient(135deg,#eaf4fc,#d4e8f7); }
-        .cell.o { color:#e74c3c; background:linear-gradient(135deg,#fdeaea,#f9d5d5); }
+        .cell:hover { background:rgba(52,152,219,0.1); }
+        .cell.x { color:#3498db; background:#eaf4fc; }
+        .cell.o { color:#e74c3c; background:#fdeaea]; }
 
-        /* ===== Chat ===== */
-        #chat {
-            width:230px; background:#fff; border-left:1px solid rgba(26,35,50,0.08);
-            display:flex; flex-direction:column; box-shadow:-3px 0 15px rgba(0,0,0,0.04);
-            flex-shrink:0; position:relative; z-index:5;
-        }
-        #chat-head { padding:8px 12px; background:linear-gradient(135deg,#1a2332,#243447); color:#fff; font-size:0.82rem; }
-        #chat-msgs { flex:1; overflow-y:auto; padding:10px; font-size:0.8rem; display:flex; flex-direction:column; gap:5px; background:#f8f9fa; }
-        .msg { padding:6px 10px; border-radius:10px; max-width:92%; word-break:break-word; }
-        .msg.me { background:#3498db; color:#fff; align-self:flex-start; }
-        .msg.other { background:#fff; color:#1a2332; align-self:flex-end; border:1px solid #ddd; }
-        #chat-input { padding:8px; border-top:1px solid #e8e8e8; display:flex; gap:6px; }
-        #chat-input input { flex:1; padding:7px 12px; border:1px solid #ddd; border-radius:20px; outline:none; font-size:0.82rem; }
-        #chat-input button { padding:7px 14px; background:#3498db; color:#fff; border:none; border-radius:20px; cursor:pointer; }
-
-        /* ===== Lobby ===== */
+        /* ===== Lobby Overlays ===== */
         #lobby {
-            position:fixed; inset:0; background:linear-gradient(135deg,#1a2332 0%,#243447 100%);
-            display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:200; padding:20px;
+            position:fixed; inset:0; background:rgba(26,35,50,0.95);
+            display:flex; justify-content:center; align-items:center; z-index:200; padding:20px;
         }
-        #lobby-box {
-            background:#fff; padding:30px; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,0.3);
-            max-width:440px; width:100%; text-align:center;
+        .lobby-box {
+            background:#fff; padding:30px; border-radius:15px; max-width:400px; 
+            width:100%; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.3);
         }
-        #lobby h2 { margin-bottom:5px; color:#1a2332; }
-        #lobby .sub { color:#7f8c8d; margin-bottom:15px; font-size:0.85rem; }
-        #room-id {
-            font-size:2.2rem; letter-spacing:4px; font-family:monospace; background:linear-gradient(135deg,#9b59b6,#8e44ad);
-            color:#fff; padding:12px; border-radius:14px; margin:12px 0; font-weight:800; user-select:all;
+        .lobby-box h2 { margin-bottom:15px; color:#1a2332; }
+        .invite-link-box {
+            background:#f8f9fa; border:1px dashed #3498db; padding:10px; 
+            border-radius:8px; margin:15px 0; font-size:0.8rem; word-break:break-all; user-select:all;
         }
-        #join-input {
-            width:100%; padding:10px; border:2px solid #e0e0e0; border-radius:12px;
-            font-size:1.4rem; text-align:center; margin:8px 0 14px; font-weight:700; letter-spacing:4px;
-        }
-        .btn { padding:11px 24px; border:none; border-radius:10px; cursor:pointer; font-size:0.95rem; margin:4px; font-weight:600; }
-        .btn-host { background:#1a2332; color:#fff; }
-        .btn-join { background:#3498db; color:#fff; }
-        .btn-ai { background:#8e44ad; color:#fff; width:100%; }
-        .btn-cancel { background:#95a5a6; color:#fff; }
-        .btn-start { background:#27ae60; color:#fff; }
-        .hidden { display:none !important; }
 
-        .size-group { display:flex; gap:6px; justify-content:center; margin:8px 0 14px; }
-        .size-btn { padding:8px 20px; border:none; border-radius:10px; background:#f0f0f0; cursor:pointer; }
-        .size-btn.selected-size { background:#1a2332 !important; color:#fff !important; }
-
-        .mp-player-row { display:flex; justify-content:space-between; padding:6px 10px; margin:4px 0; background:#f9f9f9; border-radius:8px; font-size:0.85rem; }
-        .ready-badge { padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; color:#fff; }
-        .ready-yes { background:#27ae60; } .ready-no { background:#95a5a6; }
         #modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:100; }
-        #modal-content { background:#fff; padding:30px; border-radius:20px; text-align:center; max-width:350px; width:100%; }
-        #status-msg { font-size:0.85rem; min-height:22px; margin-top:8px; font-weight:500; color:#e67e22; }
-        #chat-toggle { display:none; }
+        #modal-content { background:#fff; padding:25px; border-radius:15px; text-align:center; max-width:300px; width:100%; }
     </style>
-    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
 </head>
 <body>
 
     <div id="lobby">
-        <div id="lobby-box">
-            <h2>🎯 قنص 30 (Quintet)</h2>
-            <p class="sub">لعبة 5 في صف على شبكة <span id="lobby-size-label">30</span>×<span id="lobby-size-label2">30</span></p>
-
-            <div style="margin:12px 0 4px;">
-                <label style="font-size:0.82rem;font-weight:600;color:#555;display:block;margin-bottom:6px;">📐 حجم الشبكة:</label>
-                <div class="size-group">
-                    <button class="size-btn" data-size="15">15×15</button>
-                    <button class="size-btn" data-size="20">20×20</button>
-                    <button class="size-btn selected-size" data-size="30">30×30</button>
-                </div>
-            </div>
-
-            <div id="phase-choose">
-                <button class="btn btn-host" id="btn-create">🚀 إنشاء غرفة جديدة</button>
-                <hr style="margin:15px 0;border-color:#eee;">
-                <p>أدخل كود الغرفة المكون من 4 أرقام:</p>
-                <input type="text" id="join-input" placeholder="0000" maxlength="4">
-                <button class="btn btn-join" id="btn-join">🔗 انضمام للغرفة</button>
-                <div id="status-msg">🔄 جاهز للاتصال المباشر...</div>
-                <div style="margin-top:10px;">
-                    <button class="btn btn-ai" id="btn-vs-ai">🤖 اللعب ضد الحاسوب</button>
-                </div>
-            </div>
-
-            <div id="phase-room" class="hidden">
-                <p style="font-size:0.9rem;color:#555;">انسخ الكود وأرسله لصديقك:</p>
-                <div id="room-id">----</div>
-                <div style="margin:12px 0; background:#f5f5f5; padding:8px; border-radius:10px;">
-                    <div id="lobby-players-list"></div>
-                </div>
-                <button class="btn btn-start" id="btn-ready-toggle">✋ أنا مستعد</button>
-                <br><br>
-                <button class="btn btn-cancel" id="btn-leave" onclick="location.reload()">🚪 مغادرة</button>
-            </div>
+        <div class="lobby-box" id="box-create">
+            <h2>🎯 لعبة Quintet 30 الفورية</h2>
+            <p style="color:#666; font-size:0.9rem; margin-bottom:15px;">العب مع صديقك مباشرة دون الحاجة لإنشاء حساب أو انتظار السيرفرات!</p>
+            <button class="btn-action" id="btn-start-game" style="font-size:1.1rem; padding:10px 25px; width:100%;">🚀 بدء لعبة جديدة</button>
+            <button class="btn-action" id="btn-vs-ai" style="font-size:1rem; padding:10px 25px; width:100%; margin-top:10px; background:#8e44ad;">🤖 اللعب ضد الذكاء الاصطناعي</button>
+        </div>
+        
+        <div class="lobby-box hidden" id="box-invite">
+            <h2>⏳ في انتظار صديقك...</h2>
+            <p style="color:#555; font-size:0.85rem;">قم بنسخ الرابط بالأسفل وأرسله لصديقك ليدخل معك في نفس اللعبة فوراً:</p>
+            <div class="invite-link-box" id="link-text">جاري توليد الرابط...</div>
+            <button class="btn-action" id="btn-copy-link">📋 نسخ الرابط لإرساله</button>
         </div>
     </div>
 
     <div id="header">
-        <div id="logo">🎯 Quintet <span>30</span></div>
+        <div id="logo">🎯 Quintet 30</div>
         <div id="scores">
-            <span class="score-x">X (<span id="name-x-ui">لاعب 1</span>): <span id="score-x" class="score-num">0</span></span>
-            <span class="score-o">O (<span id="name-o-ui">لاعب 2</span>): <span id="score-o" class="score-num">0</span></span>
+            <span class="score-x">X: <span id="score-x" class="score-num">0</span></span>
+            <span class="score-o">O: <span id="score-o" class="score-num">0</span></span>
         </div>
-        <div id="turn-box">
-            <span id="my-symbol">👀 مشاهد</span>
-            <span id="turn-indicator" class="waiting">بانتظار البداية</span>
-        </div>
-        <div id="conn-status">
-            <span id="conn-dot" class="disconnected"></span>
-            <span id="conn-text">غير متصل</span>
+        <div>
+            <span id="turn-indicator"> دورك 🎯</span>
         </div>
     </div>
 
     <div id="ctrl-bar">
-        <div class="ctrl-group">
-            <button id="btn-rematch" disabled>🔄 جولة جديدة</button>
-            <button id="btn-lobby-return" onclick="location.reload()">🏠 اللوبي</button>
-        </div>
-        <div id="player-names">
-            <span class="pname-x">X: ---</span> | <span class="pname-o">O: ---</span>
-        </div>
+        <button class="btn-action" id="btn-reset">🔄 إعادة تعيين الجولة</button>
+        <span style="font-size:0.85rem; color:#666;" id="role-text">نمط اللعب المباشر</span>
     </div>
 
     <div id="game-area">
         <div id="board-container">
             <div id="board"></div>
         </div>
-
-        <div id="chat">
-            <div id="chat-head">💬 دردشة الغرفة</div>
-            <div id="chat-msgs"></div>
-            <form id="chat-input" onsubmit="return false;">
-                <input type="text" id="chat-txt" placeholder="اكتب هنا..." disabled>
-                <button type="submit" id="chat-send" disabled>إرسال</button>
-            </form>
-        </div>
     </div>
-
-    <button id="chat-toggle" style="display:none;">💬</button>
 
     <div id="modal">
         <div id="modal-content">
-            <h2 id="modal-title">انتهت الجولة!</h2>
-            <p id="modal-body"></p>
-            <button id="modal-btn-rematch" style="padding:10px 20px; background:#3498db; color:#fff; border:none; border-radius:5px; cursor:pointer;">جولة جديدة</button>
+            <h2 id="modal-title">انتهت اللعبة!</h2>
+            <p id="modal-body" style="margin:10px 0; font-weight:bold;"></p>
+            <button class="btn-action" onclick="location.reload()">جولة جديدة</button>
         </div>
     </div>
 
     <script>
         const id = x => document.getElementById(x);
-        const q = x => document.querySelector(x);
-        const qA = x => document.querySelectorAll(x);
-
-        let BOARD_SIZE = 30;
-        let gameActive = false;
+        const BOARD_SIZE = 30;
         let board = [];
         let curPlayer = 'X';
+        let mySymbol = 'X'; 
         let scoreX = 0, scoreO = 0;
-        let p1Name = 'لاعب X', p2Name = 'لاعب O';
         let isAI = false;
+        let gameActive = true;
 
-        let pubnub = null;
-        let channelName = null;
-        let isHost = false;
-        let opponentReady = false;
-        let myReady = false;
-        let myUUID = 'user_' + Math.floor(Math.random()*10000);
-
-        qA('.size-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                if(pubnub) return;
-                qA('.size-btn').forEach(b => b.classList.remove('selected-size'));
-                this.classList.add('selected-size');
-                BOARD_SIZE = parseInt(this.dataset.size);
-                id('lobby-size-label').textContent = BOARD_SIZE;
-                id('lobby-size-label2').textContent = BOARD_SIZE;
-                renderBoard();
-            });
-        });
-
+        // إعداد شبكة اللعب
         function renderBoard() {
             const bEl = id('board'); bEl.innerHTML = '';
-            bEl.style.width = (BOARD_SIZE * 28) + 'px'; bEl.style.height = (BOARD_SIZE * 28) + 'px';
+            bEl.style.width = (BOARD_SIZE * 30) + 'px';
+            bEl.style.height = (BOARD_SIZE * 30) + 'px';
             board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
 
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
                     const cell = document.createElement('div');
-                    cell.className = 'cell'; cell.style.right = (c * 28) + 'px'; cell.style.top = (r * 28) + 'px';
+                    cell.className = 'cell';
+                    cell.style.right = (c * 30) + 'px';
+                    cell.style.top = (r * 30) + 'px';
                     cell.dataset.r = r; cell.dataset.c = c;
                     cell.addEventListener('click', () => handleCellClick(r, c));
                     bEl.appendChild(cell);
@@ -277,32 +152,88 @@
             }
         }
 
-        function handleCellClick(r, c) {
-            if (!gameActive || board[r][c] !== null) return;
-            if (pubnub && !isAI) {
-                const mySym = isHost ? 'X' : 'O';
-                if (curPlayer !== mySym) return;
+        // قراءة بيانات اللعبة والتحكم المباشر عبر الرابط
+        function syncFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('moves')) {
+                renderBoard();
+                const movesStr = params.get('moves');
+                if(movesStr) {
+                    const movesArr = movesStr.split('-');
+                    curPlayer = 'X';
+                    movesArr.forEach(m => {
+                        if(!m) return;
+                        const [r, c] = m.split(',').map(Number);
+                        if(!isNaN(r) && !isNaN(c)) {
+                            board[r][c] = curPlayer;
+                            const cell = document.querySelector(`.cell[data-r='${r}'][data-c='${c}']`);
+                            if (cell) { cell.textContent = curPlayer; cell.classList.add(curPlayer.toLowerCase()); }
+                            curPlayer = curPlayer === 'X' ? 'O' : 'X';
+                        }
+                    });
+                }
+                
+                // تحديد الأدوار تلقائياً بناءً على من فتح الرابط
+                if (params.get('role') === 'join') {
+                    mySymbol = 'O';
+                    id('role-text').textContent = 'أنت تلعب بالرمز (O)';
+                } else {
+                    mySymbol = 'X';
+                    id('role-text').textContent = 'أنت منشئ الغرفة (X)';
+                }
+                
+                id('lobby').style.display = 'none';
+                updateTurnUI();
             }
-            executeMove(r, c);
-            if (pubnub) {
-                pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'MOVE', r, c } });
-            }
-            if (isAI && gameActive && curPlayer === 'O') setTimeout(executeAIMove, 300);
         }
 
-        function executeMove(r, c) {
+        function handleCellClick(r, c) {
+            if (!gameActive || board[r][c] !== null) return;
+            if (!isAI && curPlayer !== mySymbol) { alert('⚠️ ليس دورك الآن! انتظر حركة الخصم المحدثة في الرابط.'); return; }
+
             board[r][c] = curPlayer;
-            const cell = q(`.cell[data-r='${r}'][data-c='${c}']`);
+            const cell = document.querySelector(`.cell[data-r='${r}'][data-c='${c}']`);
             if (cell) { cell.textContent = curPlayer; cell.classList.add(curPlayer.toLowerCase()); }
-            if (checkWin(r, c)) { endGame(curPlayer); return; }
+
+            // تحديث الرابط فوراً لمشاركته
+            const params = new URLSearchParams(window.location.search);
+            let moves = params.get('moves') || '';
+            moves += (moves ? '-' : '') + `${r},${c}`;
+            params.set('moves', moves);
+            
+            if (checkWin(r, c)) {
+                id('modal-body').textContent = `الفائز هو اللاعب: ${curPlayer}`;
+                id('modal').style.display = 'flex';
+                gameActive = false;
+                return;
+            }
+
             curPlayer = curPlayer === 'X' ? 'O' : 'X';
-            updateTurnUI();
+            
+            if (isAI) {
+                updateTurnUI();
+                if (curPlayer === 'O') setTimeout(executeAIMove, 300);
+            } else {
+                // في اللعب المشترك: نقوم بتحديث الرابط في المتصفح ونسخه تلقائياً للخصم
+                params.set('role', 'join'); // الخصم سيكون الزائر دائماً
+                const nextURL = window.location.origin + window.location.pathname + '?' + params.toString();
+                window.history.replaceState({}, '', window.location.pathname + '?' + 'moves=' + moves + '&role=' + mySymbol.toLowerCase());
+                
+                navigator.clipboard.writeText(nextURL).then(() => {
+                    alert('🎯 تم تسجيل حركتك بنجاح! وتم نسخ رابط اللعبة المحدث تلقائياً بحافظتك، أرسله لصديقك الآن ليكمل دوره!');
+                }).catch(() => {
+                    prompt('🎯 حركتك جاهزة! انسخ هذا الرابط المحدث وأرسله لصديقك فوراً ليكمل دوره:', nextURL);
+                });
+                updateTurnUI();
+            }
         }
 
         function checkWin(r, c) {
-            const sym = board[r][c]; const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
+            const sym = board[r][c];
+            const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
             for (let [dr, dc] of dirs) {
-                let count = 1; let nr = r + dr, nc = c + dc;
+                let count = 1;
+                let nr = r + dr, nc = c + dc;
                 while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { count++; nr+=dr; nc+=dc; }
                 nr = r - dr; nc = c - dc;
                 while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { count++; nr-=dr; nc-=dc; }
@@ -311,166 +242,41 @@
             return false;
         }
 
-        function endGame(winner) {
-            gameActive = false; if (winner === 'X') scoreX++; else scoreO++;
-            id('score-x').textContent = scoreX; id('score-o').textContent = scoreO;
-            id('modal-body').textContent = `الفائز هو: ${winner === 'X' ? p1Name : p2Name}`;
-            id('modal').style.display = 'flex'; id('btn-rematch').disabled = false;
-        }
-
         function updateTurnUI() {
             const ti = id('turn-indicator');
-            if(isAI) {
-                ti.textContent = curPlayer === 'X' ? '🎯 دورك' : '🤖 تفكير...';
-                ti.className = curPlayer === 'X' ? 'your-turn' : 'waiting'; return;
+            if (curPlayer === mySymbol) {
+                ti.textContent = '🎯 دورك الآن'; ti.className = '';
+            } else {
+                ti.textContent = '⏳ دور الخصم'; ti.className = 'waiting';
             }
-            if(pubnub) {
-                const mySym = isHost ? 'X' : 'O';
-                ti.textContent = curPlayer === mySym ? '🎯 دورك' : '⏳ دور الخصم';
-                ti.className = curPlayer === mySym ? 'your-turn' : 'waiting'; return;
-            }
-            ti.textContent = `دور ${curPlayer}`;
         }
 
-        id('modal-btn-rematch').addEventListener('click', () => {
-            id('modal').style.display = 'none';
-            if(isAI) { startNewMatch(); return; }
-            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'REQ_REMATCH' } });
+        // أزرار التحكم واللوبي
+        id('btn-start-game').addEventListener('click', () => {
+            id('box-create').classList.add('hidden');
+            id('box-invite').classList.remove('hidden');
+            const startURL = window.location.origin + window.location.pathname + '?moves=&role=join';
+            id('link-text').textContent = startURL;
         });
 
-        id('btn-rematch').addEventListener('click', () => {
-            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'REQ_REMATCH' } });
+        id('btn-copy-link').addEventListener('click', () => {
+            const link = id('link-text').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                alert('📋 تم نسخ الرابط بنجاح! أرسله لصديقك الآن، وبمجرد أن يفتحه ستبدأ اللعبة فوراً.');
+                window.location.href = window.location.origin + window.location.pathname + '?moves=&role=host';
+            });
         });
-
-        function startNewMatch() {
-            renderBoard(); curPlayer = 'X'; gameActive = true; updateTurnUI(); id('btn-rematch').disabled = true;
-        }
 
         id('btn-vs-ai').addEventListener('click', () => {
-            p1Name = 'أنت'; p2Name = 'الحاسوب';
-            id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
-            id('lobby').style.display = 'none'; isAI = true; startNewMatch();
+            isAI = true; id('lobby').style.display = 'none';
+            id('role-text').textContent = 'نمط اللعب ضد الذكاء الاصطناعي';
+            renderBoard();
         });
 
-        // تشغيل نظام PubNub العالمي والمضاد للحظر الحكومي تماماً
-        function connectToNetwork(code, successCallback) {
-            id('status-msg').textContent = '📡 جاري الاتصال بالشبكة الآمنة التلقائية...';
-            
-            // مفاتيح عامة ومجانية مخصصة للألعاب المستقرة عالمياً ومضادة بالكامل للحظر
-            pubnub = new PubNub({
-                publishKey: 'pub-c-9860b0ec-a079-4591-9e7c-b038867c29e6',
-                subscribeKey: 'sub-c-1a52e0be-ef4d-11e4-9273-06199b4ee2e4',
-                userId: myUUID
-            });
-
-            channelName = 'q30_room_' + code;
-
-            pubnub.addListener({
-                status: function(s) {
-                    if (s.category === "PNConnectedCategory") {
-                        id('conn-dot').className = 'online';
-                        id('conn-text').textContent = 'متصل بالشبكة';
-                        successCallback();
-                    }
-                },
-                message: function(m) {
-                    let data = m.message;
-                    if (data.sender === myUUID) return; // تجاهل رسائلي أنا
-
-                    if (data.type === 'JOIN_ALERT') {
-                        id('lobby').style.display = 'none';
-                        id('chat-txt').disabled = false; id('chat-send').disabled = false;
-                        if(isHost) {
-                            p1Name = 'المضيف (أنت)'; p2Name = 'الضيف';
-                            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'SPECS', size: BOARD_SIZE } });
-                        }
-                        id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
-                        id('my-symbol').textContent = isHost ? '👤 رمزك X' : '👤 رمزك O';
-                        renderLobbyList();
-                    }
-                    if (data.type === 'SPECS') {
-                        BOARD_SIZE = data.size; renderBoard();
-                        id('lobby').style.display = 'none';
-                        id('chat-txt').disabled = false; id('chat-send').disabled = false;
-                        p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
-                        id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
-                        id('my-symbol').textContent = '👤 رمزك O';
-                    }
-                    if (data.type === 'MOVE') { executeMove(data.r, data.c); }
-                    if (data.type === 'CHAT') { appendChat('الخصم', data.text, 'other'); }
-                    if (data.type === 'READY') { opponentReady = data.val; renderLobbyList(); checkBothReady(); }
-                    if (data.type === 'START') { startNewMatch(); }
-                    if (data.type === 'REQ_REMATCH') {
-                        if(confirm('طلب الخصم بدء جولة جديدة، هل توافق؟')) {
-                            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'START' } });
-                            startNewMatch();
-                        }
-                    }
-                }
-            });
-
-            pubnub.subscribe({ channels: [channelName] });
-        }
-
-        id('btn-create').addEventListener('click', () => {
-            let code = Math.floor(1000 + Math.random() * 9000).toString(); // كود من 4 أرقام فقط لسهولة الإرسال
-            isHost = true;
-            connectToNetwork(code, () => {
-                id('phase-choose').classList.add('hidden');
-                id('phase-room').classList.remove('hidden');
-                id('room-id').textContent = code;
-                renderLobbyList();
-            });
-        });
-
-        id('btn-join').addEventListener('click', () => {
-            let code = id('join-input').value.trim();
-            if(code.length !== 4) { id('status-msg').textContent = '⚠️ الكود يتكون من 4 أرقام!'; return; }
-            isHost = false;
-            connectToNetwork(code, () => {
-                // إعلام المنشئ بدخولي
-                pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'JOIN_ALERT' } });
-                id('lobby').style.display = 'none';
-                id('chat-txt').disabled = false; id('chat-send').disabled = false;
-                p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
-                id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
-                id('my-symbol').textContent = '👤 رمزك O';
-            });
-        });
-
-        id('btn-ready-toggle').addEventListener('click', function() {
-            myReady = !myReady;
-            this.textContent = myReady ? '⏳ مستعد (إلغاء)' : '✋ أنا مستعد';
-            this.style.background = myReady ? '#e74c3c' : '#27ae60';
-            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'READY', val: myReady } });
-            checkBothReady();
-        });
-
-        function checkBothReady() {
-            if(myReady && opponentReady && isHost) {
-                pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'START' } });
-                startNewMatch();
-            }
-        }
-
-        function renderLobbyList() {
-            const list = id('lobby-players-list');
-            list.innerHTML = `
-                <div class="mp-player-row"><span>🏠 منشئ الغرفة</span><span class="ready-badge ready-yes">متصل</span></div>
-                <div class="mp-player-row"><span>👥 الخصم الثاني</span><span class="ready-badge ${opponentReady?'ready-yes':'ready-no'}">${opponentReady?'مستعد':'ينتظر'}</span></div>
-            `;
-        }
-
-        function appendChat(user, text, style) {
-            const m = document.createElement('div'); m.className = `msg ${style}`;
-            m.innerHTML = `<strong>${user}:</strong> ${text}`;
-            id('chat-msgs').appendChild(m); id('chat-msgs').scrollTop = id('chat-msgs').scrollHeight;
-        }
-
-        id('chat-input').addEventListener('submit', () => {
-            const txt = id('chat-txt').value.trim(); if(!txt) return;
-            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'CHAT', text: txt } });
-            appendChat('أنت', txt, 'me'); id('chat-txt').value = '';
+        id('btn-reset').addEventListener('click', () => {
+            const p = new URLSearchParams(window.location.search);
+            p.delete('moves');
+            window.location.href = window.location.origin + window.location.pathname;
         });
 
         function executeAIMove() {
@@ -478,13 +284,21 @@
             for(let r=0; r<BOARD_SIZE; r++) {
                 for(let c=0; c<BOARD_SIZE; c++) { if(board[r][c] === null) options.push({r,c}); }
             }
-            if(options.length > 0) {
+            if(options.length > 0 && gameActive) {
                 let choice = options[Math.floor(Math.random() * options.length)];
-                executeMove(choice.r, choice.c);
+                board[choice.r][choice.c] = 'O';
+                const cell = document.querySelector(`.cell[data-r='${choice.r}'][data-c='${choice.c}']`);
+                if (cell) { cell.textContent = 'O'; cell.classList.add('o'); }
+                if (checkWin(choice.r, choice.c)) {
+                    id('modal-body').textContent = 'للأسف، فاز الذكاء الاصطناعي!';
+                    id('modal').style.display = 'flex'; gameActive = false; return;
+                }
+                curPlayer = 'X'; updateTurnUI();
             }
         }
 
         renderBoard();
+        syncFromURL();
     </script>
 </body>
 </html>
