@@ -408,7 +408,7 @@
                 <button class="btn btn-host" id="btn-create">🚀 إنشاء غرفة</button>
                 <hr style="margin:15px 0;border-color:#eee;">
                 <p>أو انضم لغرفة:</p>
-                <input type="text" id="join-input" placeholder="123" maxlength="3" inputmode="numeric" pattern="[0-9]*">
+                <input type="text" id="join-input" placeholder="1234" maxlength="4" inputmode="numeric" pattern="[0-9]*">
                 <button class="btn btn-join" id="btn-join">🔗 انضمام</button>
                 <div id="status-msg" class="status-wait"></div>
                 <div style="margin:12px 0;">
@@ -1349,7 +1349,7 @@
 
         // ICE servers for NAT traversal (STUN + TURN)
         const iceServers = [
-            // Google STUN servers
+            // Google STUN servers - discover public IP
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
@@ -1359,136 +1359,132 @@
             { urls: 'stun:stun.cloudflare.com:3478' },
             // Twilio STUN
             { urls: 'stun:global.stun.twilio.com:3478' },
-            // Free TURN servers - relay traffic when direct connection fails
-            // Using multiple TURN providers for redundancy
-            {
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turn:openrelay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            }
+            // Free TURN relay servers - essential for cross-network (NAT traversal)
+            // Open Relay Project by Metered.ca
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+            // Backup TURN - eNebula (free tier)
+            { urls: 'turn:eu-turn1.xirsys.com:3478?transport=udp', username: 'xirsys_viki', credential: '4c4f1c88-f782-11ee-b38c-0242ac120004' },
+            { urls: 'turn:eu-turn1.xirsys.com:443?transport=tcp', username: 'xirsys_viki', credential: '4c4f1c88-f782-11ee-b38c-0242ac120004' },
         ];
 
-        // List of PeerJS signaling servers to try (fallback chain)
+        // Signaling servers - CRITICAL: both peers MUST use the same server
         const peerServers = [
-            { host: '0.peerjs.com', port: 443, secure: true, label: 'PeerJS Cloud (الرئيسي)' },
-            { host: '1.peerjs.com', port: 443, secure: true, label: 'PeerJS Cloud (1)' },
-            { host: '2.peerjs.com', port: 443, secure: true, label: 'PeerJS Cloud (2)' },
-            { host: '3.peerjs.com', port: 443, secure: true, label: 'PeerJS Cloud (3)' },
+            { host: '0.peerjs.com', port: 443, secure: true },
+            { host: '1.peerjs.com', port: 443, secure: true },
+            { host: '2.peerjs.com', port: 443, secure: true },
+            { host: '3.peerjs.com', port: 443, secure: true },
         ];
-        let currentServerIdx = 0;
+        let hostServerIdx = 0; // which server the host used (embedded in room code)
         let connDebugLog = [];
 
         function connLog(msg) {
             const ts = new Date().toLocaleTimeString();
             connDebugLog.push(`[${ts}] ${msg}`);
-            if (connDebugLog.length > 50) connDebugLog.shift();
+            if (connDebugLog.length > 100) connDebugLog.shift();
             console.log(`[Quintet] ${msg}`);
-            // Update debug panel if visible
             const dbg = id('conn-debug-log');
             if (dbg) dbg.textContent = connDebugLog.join('\n');
         }
 
+        // Build PeerJS options with ICE servers for a specific server index
         function getPeerOpts(serverIdx) {
             const custom = id('peer-server-input').value.trim();
-            const baseConfig = {
-                config: { iceServers: iceServers },
-                debug: 1  // Log warnings/errors
-            };
+            const base = { config: { iceServers }, debug: 1 };
             if (custom) {
                 peerServer = custom;
                 if (custom.includes(':')) {
                     const sp = custom.split(':');
-                    return { ...baseConfig, host: sp[0], port: parseInt(sp[1]) || 9000, secure: false };
+                    return { ...base, host: sp[0], port: parseInt(sp[1]) || 9000, secure: false };
                 }
-                return { ...baseConfig, host: custom, port: 443, secure: true };
+                return { ...base, host: custom, port: 443, secure: true };
             }
-            // Use server from fallback chain
             const s = peerServers[serverIdx || 0] || peerServers[0];
-            currentServerIdx = serverIdx || 0;
             peerServer = s.host;
-            connLog(`استخدام خادم: ${s.label} (${s.host})`);
-            return { ...baseConfig, host: s.host, port: s.port, secure: s.secure };
+            return { ...base, host: s.host, port: s.port, secure: s.secure };
         }
 
-        // Test if a PeerJS server is reachable
+        // Encode server index into room code so joiner knows which server to use
+        // Format: SCCC where S=server index (1-4), CCC=random 3-digit number
+        // This ensures both peers use the SAME signaling server
+        function encodeRoomCode(code, serverIdx) {
+            return String(serverIdx + 1) + code; // e.g. "1234" = server 0, code "234"
+        }
+        function decodeRoomCode(fullCode) {
+            if (fullCode.length === 4) {
+                const sIdx = parseInt(fullCode[0]) - 1;
+                const code = fullCode.substring(1);
+                if (sIdx >= 0 && sIdx < peerServers.length && /^\d{3}$/.test(code)) {
+                    return { serverIdx: sIdx, code: code };
+                }
+            }
+            // Old format: 3 digits, default to server 0
+            return { serverIdx: 0, code: fullCode };
+        }
+
+        // Test a specific PeerJS signaling server
         function testPeerServer(serverIdx) {
             return new Promise((resolve) => {
                 const opts = getPeerOpts(serverIdx);
-                const testId = 'qtest' + Math.random().toString(36).substr(2,6);
+                const testId = 'qt' + Math.random().toString(36).substr(2,6);
                 const p = new Peer(testId, opts);
-                const t = setTimeout(() => { p.destroy(); resolve(false); }, 10000);
+                const t = setTimeout(() => { p.destroy(); resolve(false); }, 8000);
                 p.on('open', () => { clearTimeout(t); p.destroy(); resolve(true); });
-                p.on('error', (err) => {
-                    clearTimeout(t); p.destroy();
-                    // 'unavailable-id' means server is working but ID is taken
-                    resolve(err.type === 'unavailable-id');
-                });
+                p.on('error', (err) => { clearTimeout(t); p.destroy(); resolve(err.type === 'unavailable-id'); });
             });
         }
 
-        // Find the first working PeerJS server
-        async function findWorkingServer() {
-            const custom = id('peer-server-input').value.trim();
-            if (custom) {
-                connLog(`استخدام خادم مخصص: ${custom}`);
-                return 0; // User specified a server, use it
-            }
-            connLog('🔍 جاري البحث عن خادم متاح...');
-            for (let i = 0; i < peerServers.length; i++) {
-                connLog(`⏳ اختبار ${peerServers[i].label}...`);
-                const ok = await testPeerServer(i);
-                if (ok) {
-                    connLog(`✅ ${peerServers[i].label} متاح!`);
-                    return i;
-                }
-                connLog(`❌ ${peerServers[i].label} غير متاح`);
-            }
-            connLog('⚠️ لم يتم العثور على خادم متاح، سيتم استخدام الخادم الافتراضي');
-            return 0;
-        }
+        // ===== HOST: Create room =====
+        // Tries servers one by one, encodes the working server index into room code
         async function tryCreatePeer(code, retry) {
-            if (retry > 10) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة بعد 10 محاولات'; id('status-msg').className = 'status-error'; return; }
-            id('status-msg').textContent = retry > 0 ? `🔄 المحاولة ${retry}/10...` : '🔄 جاري البحث عن خادم متاح...';
+            if (retry > 12) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة'; id('status-msg').className = 'status-error'; return; }
+            id('status-msg').textContent = '🔄 جاري إنشاء الغرفة...';
             id('status-msg').className = 'status-wait';
-            connLog(`إنشاء غرفة برمز: ${code} (محاولة ${retry})`);
+            connLog(`إنشاء غرفة: كود=${code}, محاولة=${retry}`);
 
-            // Find a working server before creating
-            const serverIdx = await findWorkingServer();
+            const custom = id('peer-server-input').value.trim();
+            let serverIdx = 0;
+
+            if (!custom) {
+                // Try each server until one works
+                for (let i = 0; i < peerServers.length; i++) {
+                    connLog(`⏳ اختبار ${peerServers[i].host}...`);
+                    const ok = await testPeerServer(i);
+                    if (ok) { serverIdx = i; connLog(`✅ ${peerServers[i].host} متاح`); break; }
+                    connLog(`❌ ${peerServers[i].host} غير متاح`);
+                }
+            }
+
             const opts = getPeerOpts(serverIdx);
             const p = new Peer(code, opts);
             peer = p;
+            hostServerIdx = serverIdx;
+
             p.on('open', id2 => {
                 if (id2 === code) {
-                    roomCode = code; id('room-id').textContent = code;
+                    roomCode = code;
+                    // Show encoded room code (includes server index)
+                    const displayCode = encodeRoomCode(code, serverIdx);
+                    id('room-id').textContent = displayCode;
                     id('phase-choose').classList.add('hidden');
                     id('phase-host').classList.remove('hidden');
                     id('host-size-txt').textContent = `${gridSize}×${gridSize}`;
                     id('status-msg').textContent = '';
                     updateConnUI(true, 'متصل');
-                    connLog(`✅ تم إنشاء الغرفة ${code} على ${peerServer}`);
+                    connLog(`✅ غرفة ${displayCode} على ${peerServer} (خادم ${serverIdx})`);
                 }
             });
             p.on('error', err => {
-                connLog(`❌ خطأ PeerJS: ${err.type} - ${err.message || ''}`);
+                connLog(`❌ خطأ: ${err.type}`);
                 if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
                     p.destroy(); const nc = genCode();
                     setTimeout(() => tryCreatePeer(nc, retry + 1), 300);
                 } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
-                    // Server issue - try next server
                     p.destroy();
-                    const nextIdx = (currentServerIdx + 1) % peerServers.length;
-                    connLog(`🔄 الانتقال للخادم التالي: ${peerServers[nextIdx].label}`);
-                    setTimeout(() => tryCreatePeerWithServer(code, nextIdx, retry + 1), 500);
+                    // Try next server
+                    hostServerIdx = (serverIdx + 1) % peerServers.length;
+                    setTimeout(() => tryCreatePeerWithServer(code, hostServerIdx, retry + 1), 500);
                 } else {
                     id('status-msg').textContent = `❌ ${err.type}`;
                     id('status-msg').className = 'status-error';
@@ -1496,35 +1492,37 @@
             });
             p.on('connection', c => {
                 conn = c; isHost = true; mySym = 'X';
-                connLog(`📥 اتصال وارد من لاعب`);
-                conn.on('open', () => {
-                    conn.send({type:'game_config', gridSize, hostName:''});
+                connLog('📥 اتصال وارد من لاعب');
+                c.on('open', () => {
+                    c.send({type:'game_config', gridSize, hostName:''});
                     setupConnection();
                 });
-                // Monitor ICE connection
-                monitorICEConnection(p, c);
+                monitorICE(p, c);
             });
         }
 
-        // Create peer with a specific server index
+        // Create with specific server (for retry)
         function tryCreatePeerWithServer(code, serverIdx, retry) {
-            if (retry > 10) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة'; id('status-msg').className = 'status-error'; return; }
+            if (retry > 12) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة'; id('status-msg').className = 'status-error'; return; }
             const opts = getPeerOpts(serverIdx);
             const p = new Peer(code, opts);
             peer = p;
+            hostServerIdx = serverIdx;
             p.on('open', id2 => {
                 if (id2 === code) {
-                    roomCode = code; id('room-id').textContent = code;
+                    roomCode = code;
+                    const displayCode = encodeRoomCode(code, serverIdx);
+                    id('room-id').textContent = displayCode;
                     id('phase-choose').classList.add('hidden');
                     id('phase-host').classList.remove('hidden');
                     id('host-size-txt').textContent = `${gridSize}×${gridSize}`;
                     id('status-msg').textContent = '';
                     updateConnUI(true, 'متصل');
-                    connLog(`✅ تم إنشاء الغرفة ${code} على ${peerServer}`);
+                    connLog(`✅ غرفة ${displayCode} على ${peerServer}`);
                 }
             });
             p.on('error', err => {
-                connLog(`❌ خطأ PeerJS: ${err.type}`);
+                connLog(`❌ خطأ: ${err.type}`);
                 if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
                     p.destroy(); const nc = genCode();
                     const nextIdx = (serverIdx + 1) % peerServers.length;
@@ -1540,35 +1538,149 @@
             });
             p.on('connection', c => {
                 conn = c; isHost = true; mySym = 'X';
-                connLog(`📥 اتصال وارد من لاعب`);
-                conn.on('open', () => {
-                    conn.send({type:'game_config', gridSize, hostName:''});
+                connLog('📥 اتصال وارد');
+                c.on('open', () => {
+                    c.send({type:'game_config', gridSize, hostName:''});
                     setupConnection();
                 });
-                monitorICEConnection(p, c);
+                monitorICE(p, c);
             });
         }
 
-        // Monitor ICE connection state
-        function monitorICEConnection(peerObj, connObj) {
-            if (!peerObj || !peerObj._pc) return;
-            try {
-                const pc = peerObj._pc;
-                pc.oniceconnectionstatechange = () => {
-                    const state = pc.iceConnectionState;
-                    connLog(`🔗 حالة ICE: ${state}`);
-                    if (state === 'failed') {
-                        connLog('⚠️ فشل ICE - قد تحتاج لخادم TURN');
-                    } else if (state === 'connected' || state === 'completed') {
-                        connLog('✅ اتصال ICE ناجح');
-                    }
-                };
-                pc.onicegatheringstatechange = () => {
-                    connLog(`🔍 جمع ICE: ${pc.iceGatheringState}`);
-                };
-            } catch(e) {
-                connLog('⚠️ تعذر مراقبة ICE');
+        // ===== JOIN: Connect to room =====
+        // Decodes server index from room code, connects to SAME server as host
+        // Then tries ALL servers if host's peer ID is not found
+        async function tryJoin(fullCode) {
+            const decoded = decodeRoomCode(fullCode);
+            const { serverIdx: targetServer, code } = decoded;
+            connLog(`الانضمام: كود كامل=${fullCode}, كود=${code}, خادم=${targetServer} (${peerServers[targetServer]?.host || 'مخصص'})`);
+            id('status-msg').textContent = '🔄 جاري الاتصال بخادم المضيف...';
+            id('status-msg').className = 'status-wait';
+
+            // First: try the exact server the host used
+            tryJoinOnServer(code, targetServer, 0, fullCode);
+        }
+
+        let joinRetryCount = 0;
+        function tryJoinOnServer(code, serverIdx, attempt, originalFullCode) {
+            if (attempt > peerServers.length) {
+                id('status-msg').textContent = '❌ الغرفة غير موجودة على أي خادم. تأكد أن المضيف أنشأ الغرفة وأن الكود صحيح';
+                id('status-msg').className = 'status-error';
+                joinRetryCount = 0;
+                return;
             }
+            connLog(`محاولة ${attempt + 1}: الاتصال بالخادم ${peerServers[serverIdx]?.host || serverIdx} للبحث عن الغرفة ${code}`);
+            id('status-msg').textContent = `🔄 جاري الاتصال (${peerServers[serverIdx]?.host || 'خادم ' + serverIdx})...`;
+            id('status-msg').className = 'status-wait';
+
+            const opts = getPeerOpts(serverIdx);
+            const p = new Peer(opts);
+            peer = p;
+            const signalTimeout = setTimeout(() => {
+                if (!peer || !peer.open) {
+                    connLog(`⏳ الخادم ${peerServers[serverIdx]?.host} لا يستجيب`);
+                    p.destroy(); peer = null;
+                    // Try next server
+                    const nextIdx = (serverIdx + 1) % peerServers.length;
+                    tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode);
+                }
+            }, 10000);
+
+            p.on('open', () => {
+                clearTimeout(signalTimeout);
+                connLog(`✅ متصل بخادم الإشارات ${peerServer}، جاري البحث عن الغرفة ${code}...`);
+                id('status-msg').textContent = '🔄 جاري الاتصال بالغرفة...';
+
+                const c = p.connect(code, { reliable: true, timeout: 20000 });
+                conn = c;
+
+                const dataTimeout = setTimeout(() => {
+                    if (!c.open) {
+                        connLog(`⏳ لم يتم العثور على الغرفة ${code} على ${peerServer}`);
+                        p.destroy(); peer = null;
+                        // Try next server
+                        const nextIdx = (serverIdx + 1) % peerServers.length;
+                        tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode);
+                    }
+                }, 20000);
+
+                c.on('open', () => {
+                    clearTimeout(dataTimeout);
+                    joinRetryCount = 0;
+                    isHost = false; mySym = 'O';
+                    connLog('✅ تم الاتصال بالغرفة بنجاح!');
+                    setupConnection();
+                    monitorICE(p, c);
+                });
+
+                c.on('error', err => {
+                    clearTimeout(dataTimeout);
+                    connLog(`❌ خطأ اتصال: ${err.type}`);
+                    if (err.type === 'peer-unavailable') {
+                        // Host not on this server - try next
+                        connLog(`🔍 الغرفة ${code} غير موجودة على ${peerServer}، جاري تجربة خادم آخر...`);
+                        p.destroy(); peer = null;
+                        const nextIdx = (serverIdx + 1) % peerServers.length;
+                        setTimeout(() => tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode), 300);
+                    } else {
+                        id('status-msg').textContent = `❌ ${err.type}`;
+                        id('status-msg').className = 'status-error';
+                    }
+                });
+            });
+
+            p.on('error', err => {
+                clearTimeout(signalTimeout);
+                connLog(`❌ خطأ خادم: ${err.type}`);
+                if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+                    p.destroy(); peer = null;
+                    const nextIdx = (serverIdx + 1) % peerServers.length;
+                    setTimeout(() => tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode), 300);
+                } else if (err.type === 'unavailable-id') {
+                    // ID taken on this server - shouldn't happen for join, but try next
+                    p.destroy(); peer = null;
+                    const nextIdx = (serverIdx + 1) % peerServers.length;
+                    setTimeout(() => tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode), 300);
+                } else {
+                    id('status-msg').textContent = `❌ ${err.type || 'فشل الاتصال'}`;
+                    id('status-msg').className = 'status-error';
+                }
+            });
+        }
+
+        // Monitor ICE connection state for debugging
+        function monitorICE(peerObj, connObj) {
+            // Try to monitor after a short delay (PeerJS needs time to create RTCPeerConnection)
+            setTimeout(() => {
+                if (!peerObj) return;
+                try {
+                    const pc = peerObj._pc || (peerObj.connections && Object.values(peerObj.connections).flat()[0]?.peerConnection);
+                    if (!pc) { connLog('⚠️ لا يمكن الوصول لـ RTCPeerConnection'); return; }
+                    pc.oniceconnectionstatechange = () => {
+                        const state = pc.iceConnectionState;
+                        connLog(`🔗 ICE: ${state}`);
+                        if (state === 'failed') {
+                            connLog('❌ فشل اتصال ICE! السبب المحتمل: جدار حماية صارم أو خادم TURN لا يعمل');
+                            connLog('💡 جرب: الإعدادات المتقدمة → غيّر الخادم');
+                        } else if (state === 'connected' || state === 'completed') {
+                            connLog('✅ اتصال ICE ناجح!');
+                        } else if (state === 'disconnected') {
+                            connLog('⚠️ انقطع ICE مؤقتاً، جاري إعادة الاتصال...');
+                            // Try ICE restart
+                            try { pc.restartIce(); connLog('🔄 إعادة تشغيل ICE...'); } catch(e) {}
+                        }
+                    };
+                    pc.onicecandidate = (e) => {
+                        if (e.candidate) {
+                            const type = e.candidate.type || 'unknown';
+                            const proto = e.candidate.protocol || '';
+                            connLog(`🧊 مرشح ICE: ${type} (${proto})`);
+                        }
+                    };
+                } catch(e) {
+                    connLog('⚠️ تعذر مراقبة ICE');
+                }
+            }, 2000);
         }
         id('btn-adv').onclick = () => {
             const el = id('adv-settings');
@@ -1588,9 +1700,9 @@
             } else {
                 let found = false;
                 for (let i = 0; i < peerServers.length; i++) {
-                    result.textContent = `🔄 اختبار ${peerServers[i].label}...`;
+                    result.textContent = `🔄 اختبار ${peerServers[i].host}...`;
                     const ok = await testPeerServer(i);
-                    if (ok) { result.textContent = `✅ ${peerServers[i].label} يعمل`; result.style.color = '#27ae60'; found = true; break; }
+                    if (ok) { result.textContent = `✅ ${peerServers[i].host} يعمل`; result.style.color = '#27ae60'; found = true; break; }
                 }
                 if (!found) { result.textContent = '❌ لا يوجد خادم متاح حالياً'; result.style.color = '#e74c3c'; }
             }
@@ -1633,166 +1745,10 @@
             if (Math.random() < 0.5) setTimeout(aiMove, 600);
         };
 
-        let joinRetries = 0;
-        let joinServerIdx = 0;
-        async function tryJoin(code) {
-            id('status-msg').textContent = joinRetries > 0 ? `🔄 المحاولة ${joinRetries}/5...` : '🔄 جاري البحث عن خادم متاح...';
-            id('status-msg').className = 'status-wait';
-            connLog(`محاولة الانضمام للغرفة: ${code} (محاولة ${joinRetries})`);
-
-            // Find working server first
-            const serverIdx = await findWorkingServer();
-            joinServerIdx = serverIdx;
-            const opts = getPeerOpts(serverIdx);
-            const p = new Peer(opts);
-            peer = p;
-            const peerTimeout = setTimeout(() => {
-                if (!peer || !peer.open) {
-                    connLog('⏳ الخادم لا يستجيب، جاري الانتقال للخادم التالي...');
-                    id('status-msg').textContent = '⏳ جاري تجربة خادم آخر...';
-                    id('status-msg').className = 'status-wait';
-                    p.destroy();
-                    const nextIdx = (joinServerIdx + 1) % peerServers.length;
-                    joinServerIdx = nextIdx;
-                    tryJoinWithServer(code, nextIdx);
-                }
-            }, 8000);
-            p.on('open', () => {
-                clearTimeout(peerTimeout);
-                connLog(`✅ متصل بخادم الإشارات، جاري الاتصال بالغرفة ${code}...`);
-                id('status-msg').textContent = '🔄 جاري الاتصال بالغرفة...';
-                // Use reliable: true and longer timeout for cross-network
-                const c = p.connect(code, { reliable: true, timeout: 30000 });
-                conn = c;
-                const timeout = setTimeout(() => {
-                    if (!c.open) {
-                        connLog('⏳ انتهت مهلة الاتصال بالغرفة');
-                        if (joinRetries < 5) {
-                            joinRetries++;
-                            p.destroy(); peer = null;
-                            const nextIdx = (joinServerIdx + 1) % peerServers.length;
-                            joinServerIdx = nextIdx;
-                            tryJoinWithServer(code, nextIdx);
-                        } else {
-                            id('status-msg').textContent = '❌ فشل الاتصال بعد 5 محاولات. تأكد أن صديقك أنشأ الغرفة أولاً وأن كود الغرفة صحيح';
-                            id('status-msg').className = 'status-error';
-                            joinRetries = 0;
-                        }
-                    }
-                }, 30000);
-                c.on('open', () => {
-                    clearTimeout(timeout);
-                    joinRetries = 0;
-                    isHost = false; mySym = 'O';
-                    connLog('✅ تم الاتصال بالغرفة بنجاح!');
-                    setupConnection();
-                    monitorICEConnection(p, c);
-                });
-                c.on('error', err => {
-                    clearTimeout(timeout);
-                    const msg = err.message || err.type || 'الغرفة غير موجودة';
-                    connLog(`❌ خطأ اتصال: ${msg}`);
-                    if (err.type === 'peer-unavailable') {
-                        id('status-msg').textContent = '❌ الغرفة غير موجودة. تأكد أن المضيف أنشأ الغرفة أولاً';
-                    } else {
-                        id('status-msg').textContent = `❌ ${msg}`;
-                    }
-                    id('status-msg').className = 'status-error';
-                });
-            });
-            p.on('error', err => {
-                clearTimeout(peerTimeout);
-                connLog(`❌ خطأ خادم الإشارات: ${err.type}`);
-                if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
-                    // Try next server
-                    p.destroy(); peer = null;
-                    const nextIdx = (joinServerIdx + 1) % peerServers.length;
-                    joinServerIdx = nextIdx;
-                    setTimeout(() => tryJoinWithServer(code, nextIdx), 500);
-                } else {
-                    id('status-msg').textContent = `❌ ${err.type || 'فشل الاتصال بالخادم'}`;
-                    id('status-msg').className = 'status-error';
-                }
-            });
-        }
-
-        // Join with specific server
-        function tryJoinWithServer(code, serverIdx) {
-            connLog(`🔄 تجربة الخادم: ${peerServers[serverIdx]?.label || 'مخصص'}`);
-            const opts = getPeerOpts(serverIdx);
-            const p = new Peer(opts);
-            peer = p;
-            const peerTimeout = setTimeout(() => {
-                if (!peer || !peer.open) {
-                    p.destroy();
-                    if (joinRetries < 5) {
-                        joinRetries++;
-                        const nextIdx = (serverIdx + 1) % peerServers.length;
-                        setTimeout(() => tryJoinWithServer(code, nextIdx), 300);
-                    } else {
-                        id('status-msg').textContent = '❌ فشل الاتصال بعد عدة محاولات. جرب خادماً مختلفاً في الإعدادات';
-                        id('status-msg').className = 'status-error';
-                        joinRetries = 0;
-                    }
-                }
-            }, 8000);
-            p.on('open', () => {
-                clearTimeout(peerTimeout);
-                connLog(`✅ متصل بالخادم، جاري الاتصال بالغرفة ${code}...`);
-                const c = p.connect(code, { reliable: true, timeout: 30000 });
-                conn = c;
-                const timeout = setTimeout(() => {
-                    if (!c.open) {
-                        connLog('⏳ انتهت مهلة الاتصال بالغرفة على هذا الخادم');
-                        if (joinRetries < 5) {
-                            joinRetries++;
-                            p.destroy(); peer = null;
-                            const nextIdx = (serverIdx + 1) % peerServers.length;
-                            setTimeout(() => tryJoinWithServer(code, nextIdx), 500);
-                        } else {
-                            id('status-msg').textContent = '❌ فشل الاتصال بعد 5 محاولات';
-                            id('status-msg').className = 'status-error';
-                            joinRetries = 0;
-                        }
-                    }
-                }, 30000);
-                c.on('open', () => {
-                    clearTimeout(timeout);
-                    joinRetries = 0;
-                    isHost = false; mySym = 'O';
-                    connLog('✅ تم الاتصال بالغرفة بنجاح!');
-                    setupConnection();
-                    monitorICEConnection(p, c);
-                });
-                c.on('error', err => {
-                    clearTimeout(timeout);
-                    const msg = err.message || err.type || 'الغرفة غير موجودة';
-                    connLog(`❌ خطأ: ${msg}`);
-                    if (err.type === 'peer-unavailable') {
-                        id('status-msg').textContent = '❌ الغرفة غير موجودة. تأكد أن المضيف أنشأ الغرفة أولاً';
-                    } else {
-                        id('status-msg').textContent = `❌ ${msg}`;
-                    }
-                    id('status-msg').className = 'status-error';
-                });
-            });
-            p.on('error', err => {
-                clearTimeout(peerTimeout);
-                connLog(`❌ خطأ خادم: ${err.type}`);
-                if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
-                    p.destroy(); peer = null;
-                    const nextIdx = (serverIdx + 1) % peerServers.length;
-                    setTimeout(() => tryJoinWithServer(code, nextIdx), 500);
-                } else {
-                    id('status-msg').textContent = `❌ ${err.type || 'فشل الاتصال'}`;
-                    id('status-msg').className = 'status-error';
-                }
-            });
-        }
         id('btn-join').onclick = () => {
             const code = id('join-input').value.trim();
-            if (!/^\d{3}$/.test(code)) { alert('أدخل 3 أرقام صحيحة'); return; }
-            joinRetries = 0;
+            if (!/^\d{3,4}$/.test(code)) { alert('أدخل الكود المكون من 3 أو 4 أرقام'); return; }
+            joinRetryCount = 0;
             tryJoin(code);
         };
 
@@ -1890,9 +1846,19 @@
             if (mpCreateRetries > 10) {
                 id('mp-status-msg').textContent = '❌ فشل إنشاء الغرفة بعد 10 محاولات. جرب خادماً آخر في الإعدادات'; id('mp-status-msg').className = 'status-error'; return;
             }
-            id('mp-status-msg').textContent = '🔄 جاري البحث عن خادم متاح...'; id('mp-status-msg').className = 'status-wait';
+            id('mp-status-msg').textContent = '🔄 جاري إنشاء الغرفة...'; id('mp-status-msg').className = 'status-wait';
             connLog(`إنشاء غرفة جماعية: ${code}`);
-            const serverIdx = await findWorkingServer();
+
+            // Find working server
+            let serverIdx = 0;
+            const custom = id('peer-server-input').value.trim();
+            if (!custom) {
+                for (let i = 0; i < peerServers.length; i++) {
+                    const ok = await testPeerServer(i);
+                    if (ok) { serverIdx = i; break; }
+                }
+            }
+
             const opts = getPeerOpts(serverIdx);
             const p = new Peer(code, opts);
             mpPeer = p;
@@ -1968,21 +1934,47 @@
 
         // ========== Join Room ==========
         let mpJoinPeer = null;
+        let mpJoinAttempt = 0;
         async function mpTryJoin(code) {
             id('phase-mp-choose').classList.add('hidden');
             id('phase-mp-join').classList.remove('hidden');
-            id('mp-join-status').textContent = '🔄 جاري البحث عن خادم متاح...';
+            id('mp-join-status').textContent = '🔄 جاري الاتصال بالغرفة...';
             connLog(`الانضمام لغرفة جماعية: ${code}`);
-            const serverIdx = await findWorkingServer();
+
+            // Try each server looking for the host
+            mpJoinAttempt = 0;
+            mpTryJoinOnServer(code, 0);
+        }
+
+        function mpTryJoinOnServer(code, serverIdx) {
+            if (mpJoinAttempt > peerServers.length) {
+                id('mp-join-status').textContent = '❌ الغرفة غير موجودة. تأكد أن المضيف أنشأ الغرفة'; id('mp-join-status').className = 'status-error';
+                return;
+            }
+            mpJoinAttempt++;
+            id('mp-join-status').textContent = `🔄 جاري الاتصال (${peerServers[serverIdx]?.host || 'خادم'}...`;
+            connLog(`تجربة خادم ${peerServers[serverIdx]?.host} للغرفة الجماعية`);
             const opts = getPeerOpts(serverIdx);
             const p = new Peer(opts);
             mpJoinPeer = p;
+            const sigTimeout = setTimeout(() => {
+                if (!p.open) {
+                    p.destroy();
+                    const nextIdx = (serverIdx + 1) % peerServers.length;
+                    mpTryJoinOnServer(code, nextIdx);
+                }
+            }, 10000);
             p.on('open', () => {
+                clearTimeout(sigTimeout);
                 id('mp-join-status').textContent = '🔄 جاري الاتصال بالغرفة...';
-                const c = p.connect(code, { reliable: true, timeout: 30000 });
+                const c = p.connect(code, { reliable: true, timeout: 20000 });
                 const timeout = setTimeout(() => {
-                    if (!c.open) { id('mp-join-status').textContent = '❌ انتهت المهلة - تأكد أن المضيف أنشأ الغرفة أولاً'; id('mp-join-status').className = 'status-error'; }
-                }, 30000);
+                    if (!c.open) {
+                        p.destroy();
+                        const nextIdx = (serverIdx + 1) % peerServers.length;
+                        mpTryJoinOnServer(code, nextIdx);
+                    }
+                }, 20000);
                 c.on('open', () => {
                     clearTimeout(timeout);
                     id('phase-mp-join').classList.add('hidden');
@@ -1990,16 +1982,22 @@
                     mpPeer = p; mpState.myConn = c; conn = c;
                     gameMode = 'mp';
                     connLog('✅ تم الاتصال بالغرفة الجماعية!');
-                    monitorICEConnection(p, c);
+                    monitorICE(p, c);
                 });
                 c.on('data', d => mpHandleClientData(d));
                 c.on('close', () => { mpShowNotification('🔌 انقطع الاتصال بالمضيف', 'info'); mpGoToLobby(); });
                 c.on('error', () => {
-                    id('mp-join-status').textContent = '❌ فشل الاتصال - جرب خادماً آخر في الإعدادات المتقدمة'; id('mp-join-status').className = 'status-error';
+                    clearTimeout(timeout);
+                    p.destroy();
+                    const nextIdx = (serverIdx + 1) % peerServers.length;
+                    setTimeout(() => mpTryJoinOnServer(code, nextIdx), 300);
                 });
             });
             p.on('error', () => {
-                id('mp-join-status').textContent = '❌ فشل في الاتصال بالخادم - جرب خادماً آخر في الإعدادات المتقدمة'; id('mp-join-status').className = 'status-error';
+                clearTimeout(sigTimeout);
+                p.destroy();
+                const nextIdx = (serverIdx + 1) % peerServers.length;
+                setTimeout(() => mpTryJoinOnServer(code, nextIdx), 300);
             });
         }
 
