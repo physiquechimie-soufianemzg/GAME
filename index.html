@@ -57,21 +57,7 @@
             transition:all 0.15s; display:flex; align-items:center; gap:3px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
         }
         .ctrl-group button:hover { background:#f5f5f5; border-color:#aaa; box-shadow:0 2px 6px rgba(0,0,0,0.08); transform:translateY(-1px); }
-        .ctrl-group button:active { transform:translateY(0); }
-        .ctrl-group button:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
-        .ctrl-label { font-size:0.72rem; color:#7f8c8d; font-weight:600; display:flex; align-items:center; gap:3px; }
-        .rematch-pending { background:linear-gradient(135deg,#f39c12,#e67e22) !important; color:#fff !important; border-color:#d35400 !important; animation:pulse 1.2s infinite !important; }
-        .rematch-waiting { background:linear-gradient(135deg,#95a5a6,#7f8c8d) !important; color:#fff !important; border-color:#6c7a7a !important; }
-
-        /* ===== Invite Banner ===== */
-        #invite-banner {
-            position:fixed; top:100px; left:50%; transform:translateX(-50%) scale(0.8);
-            background:linear-gradient(135deg,#667eea,#764ba2); color:#fff;
-            padding:12px 28px; border-radius:30px; box-shadow:0 8px 30px rgba(102,126,234,0.35);
-            font-size:1.1rem; font-weight:700; z-index:90; white-space:nowrap;
-            opacity:0; pointer-events:none; transition:all 0.5s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        #invite-banner.show { opacity:1; transform:translateX(-50%) scale(1); }
+        .ctrl-group button:disabled { opacity:0.4; cursor:not-allowed; }
 
         /* ===== Game Area ===== */
         #game-area { flex:1; display:flex; overflow:hidden; position:relative; min-height:0; }
@@ -91,309 +77,85 @@
             display:flex; align-items:center; justify-content:center;
             font-size:17px; font-weight:700; transition:all 0.12s ease;
             cursor:pointer; user-select:none; background:#faf7f2; z-index:1;
-            box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);
-        }
-        .cell::before {
-            content:''; position:absolute; inset:0;
-            background:linear-gradient(135deg, rgba(255,255,255,0.35) 0%, transparent 50%);
-            pointer-events:none; z-index:0;
         }
         .cell:hover { background:rgba(52,152,219,0.1); border-color:rgba(52,152,219,0.3); z-index:2; transform:scale(1.04); }
-        .cell.x {
-            color:#3498db; background:linear-gradient(135deg,#eaf4fc,#d4e8f7);
-            border-color:rgba(52,152,219,0.3);
-            text-shadow:0 1px 2px rgba(52,152,219,0.2);
-        }
-        .cell.o {
-            color:#e74c3c; background:linear-gradient(135deg,#fdeaea,#f9d5d5);
-            border-color:rgba(231,76,60,0.3);
-            text-shadow:0 1px 2px rgba(231,76,60,0.2);
-        }
-        .cell.glow {
-            animation:scoreGlow 1.4s ease-out forwards;
-        }
+        .cell.x { color:#3498db; background:linear-gradient(135deg,#eaf4fc,#d4e8f7); }
+        .cell.o { color:#e74c3c; background:linear-gradient(135deg,#fdeaea,#f9d5d5); }
+        .cell.glow { animation:scoreGlow 1.4s ease-out forwards; }
         @keyframes scoreGlow {
-            0% { box-shadow:0 0 0 0 rgba(46,204,113,0.5),inset 0 0 20px rgba(46,204,113,0.15); background:rgba(46,204,113,0.2); border-color:rgba(46,204,113,0.4); transform:scale(1.08); }
-            100% { box-shadow:0 0 0 12px transparent,inset 0 0 0 transparent; background:transparent; transform:scale(1); }
+            0% { background:rgba(46,204,113,0.5); transform:scale(1.08); }
+            100% { background:transparent; transform:scale(1); }
         }
-        .cell.used {
-            background:repeating-linear-gradient(45deg,#e0e0e0,#e0e0e0 4px,#d5d5d5 4px,#d5d5d5 8px) !important;
-            color:rgba(0,0,0,0.15) !important; cursor:not-allowed !important;
-            border-color:rgba(0,0,0,0.1) !important; box-shadow:none !important; transform:none !important;
-            z-index:0;
-        }
-        .cell.used::before {
-            content:''; position:absolute; left:15%; top:50%; width:70%; height:2px;
-            background:rgba(0,0,0,0.12);
-            transform:rotate(45deg); border-radius:2px;
-        }
-        .cell.used::after {
-            content:''; position:absolute; left:15%; top:50%; width:70%; height:2px;
-            background:rgba(0,0,0,0.12);
-            transform:rotate(-45deg); border-radius:2px;
-        }
-        .cell.disabled { cursor:not-allowed; opacity:0.6; }
 
         /* ===== Chat ===== */
         #chat {
             width:230px; background:#fff; border-left:1px solid rgba(26,35,50,0.08);
-            display:flex; flex-direction:column;
-            box-shadow:-3px 0 15px rgba(0,0,0,0.04);
+            display:flex; flex-direction:column; box-shadow:-3px 0 15px rgba(0,0,0,0.04);
             flex-shrink:0; position:relative; z-index:5;
         }
-        #chat-head { padding:8px 12px; background:linear-gradient(135deg,#1a2332,#243447); color:#fff; font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
-        #chat-head .chatter { font-size:0.68rem; opacity:0.6; }
-        #chat-msgs { flex:1; overflow-y:auto; padding:10px; font-size:0.8rem; display:flex; flex-direction:column; gap:5px; background:#f8f9fa; min-height:0; }
-        #chat-msgs::-webkit-scrollbar { width:4px; }
-        #chat-msgs::-webkit-scrollbar-thumb { background:#ccc; border-radius:4px; }
-        .msg { padding:6px 10px; border-radius:10px; max-width:92%; word-break:break-word; line-height:1.35; font-size:0.8rem; }
-        .msg.me { background:linear-gradient(135deg,#3498db,#2980b9); color:#fff; align-self:flex-start; border-bottom-left-radius:3px; box-shadow:0 1px 3px rgba(52,152,219,0.2); }
-        .msg.other { background:#fff; color:#1a2332; align-self:flex-end; border-bottom-right-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,0.06); border:1px solid rgba(0,0,0,0.04); }
-        .msg.sys { background:transparent; color:#95a5a6; font-style:italic; align-self:center; max-width:100%; font-size:0.72rem; }
-        #chat-input { padding:8px; border-top:1px solid #e8e8e8; display:flex; gap:6px; background:#fff; flex-shrink:0; }
-        #chat-input input { flex:1; padding:7px 12px; border:1px solid #ddd; border-radius:20px; outline:none; font-size:0.82rem; min-width:0; transition:0.2s; background:#f5f5f5; }
-        #chat-input input:focus { border-color:#3498db; background:#fff; box-shadow:0 0 0 3px rgba(52,152,219,0.08); }
-        #chat-input input:disabled { background:#eee; cursor:not-allowed; opacity:0.6; }
-        #chat-input button {
-            padding:7px 14px; background:linear-gradient(135deg,#3498db,#2980b9); color:#fff;
-            border:none; border-radius:20px; cursor:pointer; font-size:0.85rem; white-space:nowrap;
-            transition:all 0.15s; box-shadow:0 2px 6px rgba(52,152,219,0.2);
-        }
-        #chat-input button:hover:not(:disabled) { background:linear-gradient(135deg,#2980b9,#2471a3); transform:translateY(-1px); box-shadow:0 3px 10px rgba(52,152,219,0.3); }
-        #chat-input button:disabled { background:#bdc3c7; cursor:not-allowed; box-shadow:none; }
+        #chat-head { padding:8px 12px; background:linear-gradient(135deg,#1a2332,#243447); color:#fff; font-size:0.82rem; }
+        #chat-msgs { flex:1; overflow-y:auto; padding:10px; font-size:0.8rem; display:flex; flex-direction:column; gap:5px; background:#f8f9fa; }
+        .msg { padding:6px 10px; border-radius:10px; max-width:92%; word-break:break-word; }
+        .msg.me { background:#3498db; color:#fff; align-self:flex-start; }
+        .msg.other { background:#fff; color:#1a2332; align-self:flex-end; border:1px solid #ddd; }
+        .msg.sys { color:#95a5a6; font-style:italic; align-self:center; font-size:0.72rem; }
+        #chat-input { padding:8px; border-top:1px solid #e8e8e8; display:flex; gap:6px; }
+        #chat-input input { flex:1; padding:7px 12px; border:1px solid #ddd; border-radius:20px; outline:none; font-size:0.82rem; }
+        #chat-input button { padding:7px 14px; background:#3498db; color:#fff; border:none; border-radius:20px; cursor:pointer; }
 
-        /* ===== Lobby ===== */
+        /* ===== Lobby Overlays ===== */
         #lobby {
-            position:fixed; inset:0;
-            background:linear-gradient(135deg,#1a2332 0%,#243447 50%,#1a2332 100%);
-            display:flex; flex-direction:column; justify-content:center; align-items:center;
-            z-index:200; padding:20px;
-        }
-        #lobby::before {
-            content:''; position:absolute; inset:0;
-            background:radial-gradient(ellipse at 30% 20%, rgba(241,196,15,0.06) 0%, transparent 60%),
-                       radial-gradient(ellipse at 70% 80%, rgba(52,152,219,0.06) 0%, transparent 60%);
-            pointer-events:none;
+            position:fixed; inset:0; background:linear-gradient(135deg,#1a2332 0%,#243447 100%);
+            display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:200; padding:20px;
         }
         #lobby-box {
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(20px);
-            padding:30px; border-radius:20px;
-            box-shadow:0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05);
-            max-width:440px; width:100%; text-align:center; position:relative;
-            animation:lobbyIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+            background:#fff; padding:30px; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,0.3);
+            max-width:440px; width:100%; text-align:center;
         }
-        @keyframes lobbyIn { 0%{opacity:0;transform:translateY(30px) scale(0.95)} 100%{opacity:1;transform:translateY(0) scale(1)} }
-        #lobby h2 { margin-bottom:2px; color:#1a2332; font-size:1.5rem; font-weight:800; }
+        #lobby h2 { margin-bottom:5px; color:#1a2332; }
         #lobby .sub { color:#7f8c8d; margin-bottom:15px; font-size:0.85rem; }
-        .name-field { margin-bottom:14px; text-align:right; }
-        .name-field label { display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px; color:#444; }
-        .name-field input {
-            width:100%; padding:9px 12px; border:2px solid #e0e0e0; border-radius:10px;
-            font-size:1rem; outline:none; transition:0.2s; background:#fafafa;
-        }
-        .name-field input:focus { border-color:#667eea; background:#fff; box-shadow:0 0 0 3px rgba(102,126,234,0.1); }
         #room-id {
-            font-size:2.2rem; letter-spacing:10px; font-family:'SF Mono',Consolas,monospace;
-            background:linear-gradient(135deg,#667eea,#764ba2);
-            color:#fff; padding:14px 20px; border-radius:14px;
-            margin:12px 0; user-select:all; font-weight:800;
-            box-shadow:0 6px 25px rgba(102,126,234,0.35);
-            text-shadow:0 2px 4px rgba(0,0,0,0.15);
-            transition:transform 0.3s;
+            font-size:2.2rem; letter-spacing:4px; font-family:monospace; background:linear-gradient(135deg,#27ae60,#2ecc71);
+            color:#fff; padding:12px; border-radius:14px; margin:12px 0; font-weight:800; user-select:all;
         }
-        #room-id:hover { transform:scale(1.02); }
         #join-input {
-            width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:12px;
-            font-size:1.4rem; text-align:center; margin:8px 0 14px;
-            letter-spacing:8px; font-family:'SF Mono',Consolas,monospace; font-weight:700; direction:ltr;
-            background:#fafafa; transition:0.2s;
+            width:100%; padding:10px; border:2px solid #e0e0e0; border-radius:12px;
+            font-size:1.4rem; text-align:center; margin:8px 0 14px; font-weight:700; letter-spacing:4px;
         }
-        #join-input:focus { border-color:#667eea; outline:none; background:#fff; box-shadow:0 0 0 3px rgba(102,126,234,0.1); }
-        .btn {
-            padding:11px 24px; border:none; border-radius:10px; cursor:pointer;
-            font-size:0.95rem; margin:4px; transition:all 0.2s; font-weight:600;
-            position:relative; overflow:hidden;
-        }
-        .btn:hover { opacity:0.92; transform:translateY(-2px); }
-        .btn:active { transform:scale(0.97); }
-        .btn-host { background:linear-gradient(135deg,#1a2332,#2c3e50); color:#fff; box-shadow:0 4px 15px rgba(26,35,50,0.3); }
-        .btn-host:hover { box-shadow:0 6px 20px rgba(26,35,50,0.4); }
-        .btn-join { background:linear-gradient(135deg,#3498db,#2980b9); color:#fff; box-shadow:0 4px 15px rgba(52,152,219,0.3); }
-        .btn-join:hover { box-shadow:0 6px 20px rgba(52,152,219,0.4); }
-        .btn-ai { background:linear-gradient(135deg,#6c3483,#8e44ad); color:#fff; box-shadow:0 4px 15px rgba(108,52,131,0.3); width:100%; }
-        .btn-ai:hover { box-shadow:0 6px 20px rgba(108,52,131,0.4); transform:translateY(-2px); }
-        .btn-cancel { background:linear-gradient(135deg,#95a5a6,#7f8c8d); color:#fff; box-shadow:0 4px 12px rgba(149,165,166,0.3); }
-        .btn-start { background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; font-size:1.05rem; padding:13px 34px; box-shadow:0 4px 18px rgba(46,204,113,0.3); }
-        .btn-start:hover { box-shadow:0 6px 25px rgba(46,204,113,0.4); }
-        .btn-start:disabled { background:linear-gradient(135deg,#95a5a6,#bdc3c7); cursor:not-allowed; transform:none; box-shadow:none; }
+        .btn { padding:11px 24px; border:none; border-radius:10px; cursor:pointer; font-size:0.95rem; margin:4px; font-weight:600; }
+        .btn-host { background:#1a2332; color:#fff; }
+        .btn-join { background:#3498db; color:#fff; }
+        .btn-ai { background:#8e44ad; color:#fff; width:100%; }
+        .btn-cancel { background:#95a5a6; color:#fff; }
+        .btn-start { background:#27ae60; color:#fff; }
         .hidden { display:none !important; }
 
-        /* Size buttons */
         .size-group { display:flex; gap:6px; justify-content:center; margin:8px 0 14px; }
-        .size-btn {
-            padding:8px 20px; border:2px solid transparent; border-radius:10px;
-            font-size:0.9rem; font-weight:700; cursor:pointer;
-            transition:all 0.2s; background:#f0f0f0; color:#555; flex:1; max-width:100px;
-        }
-        .size-btn:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.1); }
-        .size-btn.selected-size {
-            background:linear-gradient(135deg,#1a2332,#2c3e50) !important;
-            color:#fff !important; border-color:#f1c40f !important;
-            box-shadow:0 4px 15px rgba(241,196,15,0.25) !important;
-        }
+        .size-btn { padding:8px 20px; border:none; border-radius:10px; background:#f0f0f0; cursor:pointer; }
+        .size-btn.selected-size { background:#1a2332 !important; color:#fff !important; }
 
-        /* Ready badges */
-        .ready-badge {
-            display:inline-block; padding:4px 14px; border-radius:20px;
-            font-size:0.8rem; font-weight:600; margin:3px;
-        }
-        .ready-badge.ok { background:linear-gradient(135deg,#d4edda,#c3e6cb); color:#155724; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+        .mp-player-row { display:flex; justify-content:space-between; padding:6px 10px; margin:4px 0; background:#f9f9f9; border-radius:8px; font-size:0.85rem; }
+        .ready-badge { padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; color:#fff; }
+        .ready-yes { background:#27ae60; } .ready-no { background:#95a5a6; }
+        #modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:100; }
+        #modal-content { background:#fff; padding:30px; border-radius:20px; text-align:center; max-width:350px; width:100%; }
+        #status-msg { font-size:0.85rem; min-height:22px; margin-top:8px; font-weight:500; color:#e67e22; }
+        #chat-toggle { display:none; }
 
-        /* ===== Modal ===== */
-        #modal {
-            display:none; position:fixed; inset:0;
-            background:rgba(26,35,50,0.7); backdrop-filter:blur(6px);
-            justify-content:center; align-items:center; z-index:100; padding:20px;
-            animation:modalFade 0.3s ease;
-        }
-        @keyframes modalFade { 0%{opacity:0} 100%{opacity:1} }
-        #modal-content {
-            background:#fff; padding:28px 32px; border-radius:20px;
-            text-align:center; box-shadow:0 25px 60px rgba(0,0,0,0.3);
-            max-width:380px; width:100%; position:relative;
-            animation:modalIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        @keyframes modalIn { 0%{opacity:0;transform:translateY(40px) scale(0.92)} 100%{opacity:1;transform:translateY(0) scale(1)} }
-        #modal-content::before {
-            content:'🏆'; position:absolute; top:-22px; left:50%; transform:translateX(-50%);
-            font-size:2.8rem; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.2));
-        }
-        #modal h2 { margin-bottom:8px; font-size:1.4rem; color:#1a2332; font-weight:800; }
-        #modal p { margin:6px 0; font-size:0.95rem; color:#555; }
-        #modal .score-display { font-size:1.3rem; margin:10px 0; display:flex; justify-content:center; align-items:center; gap:10px; }
-        #modal .score-display .score-x { color:#3498db; font-weight:800; }
-        #modal .score-display .score-o { color:#e74c3c; font-weight:800; }
-        #modal button {
-            margin-top:10px; padding:10px 24px; border:none; border-radius:30px;
-            cursor:pointer; font-size:0.9rem; font-weight:600; transition:all 0.2s;
-        }
-        #modal .btn-primary { background:linear-gradient(135deg,#3498db,#2980b9); color:#fff; box-shadow:0 4px 12px rgba(52,152,219,0.25); }
-        #modal .btn-primary:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(52,152,219,0.35); }
-        #modal .btn-accept { background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; box-shadow:0 4px 12px rgba(46,204,113,0.25); }
-        #modal .btn-accept:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(46,204,113,0.35); }
-        #modal .btn-ghost { background:transparent; color:#7f8c8d; border:1px solid #ddd; }
-        #modal .btn-ghost:hover { background:#f5f5f5; }
-        #modal .rematch-req { color:#f39c12; font-weight:700; font-size:0.85rem; margin:6px 0; }
-
-        /* Status message */
-        #status-msg { font-size:0.85rem; min-height:22px; margin-top:8px; font-weight:500; }
-        .status-wait { color:#7f8c8d; } .status-error { color:#e74c3c; } .status-warn { color:#e67e22; } .status-retry { color:#f39c12; }
-        .status-ok { color:#27ae60; }
-
-        /* ===== Mobile ===== */
         @media (max-width:768px) {
-            #chat {
-                position:fixed; left:0; top:0; bottom:0; width:280px;
-                transform:translateX(-100%); transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
-                z-index:50; box-shadow:5px 0 30px rgba(0,0,0,0.2);
-                border-left:none; border-right:none;
-            }
+            #chat { position:fixed; left:0; top:0; bottom:0; width:260px; transform:translateX(-100%); transition:transform 0.3s; z-index:50; }
             #chat.open { transform:translateX(0); }
-            #chat-toggle {
-                display:block; position:fixed; left:10px; bottom:10px;
-                background:linear-gradient(135deg,#3498db,#2980b9); color:white;
-                border:none; border-radius:50%; width:52px; height:52px;
-                font-size:1.4rem; cursor:pointer; z-index:51;
-                box-shadow:0 4px 20px rgba(52,152,219,0.4);
-                transition:all 0.2s;
-            }
-            #chat-toggle:active { transform:scale(0.92); }
-            #header { padding:4px 10px; gap:2px 6px; }
-            #logo { font-size:0.85rem; }
-            #scores { gap:6px; font-size:0.75rem; }
-            #turn-indicator { font-size:0.7rem; min-width:65px; padding:3px 8px; }
-            #my-symbol { font-size:0.7rem; padding:1px 6px; }
-            #ctrl-bar { padding:4px 10px; }
-            .ctrl-group button { font-size:0.65rem; padding:3px 7px; }
-            .ctrl-label { font-size:0.65rem; }
-            .cell { width:26px; height:26px; font-size:15px; }
-            #room-id { font-size:1.6rem; letter-spacing:6px; padding:12px; }
-            #player-names { font-size:0.6rem; gap:4px; }
-            #conn-status { font-size:0.65rem; padding:1px 6px; }
-            #lobby-box { padding:20px; border-radius:16px; margin:10px; }
-            #lobby h2 { font-size:1.25rem; }
+            #chat-toggle { display:block; position:fixed; left:15px; bottom:15px; background:#3498db; color:#fff; border:none; border-radius:50%; width:50px; height:50px; font-size:1.3rem; z-index:51; }
         }
-        @media (max-width:480px) {
-            #header { padding:3px 8px; }
-            #logo { font-size:0.75rem; }
-            #scores { font-size:0.7rem; gap:4px; }
-            #turn-indicator { font-size:0.65rem; min-width:55px; padding:2px 6px; }
-            #my-symbol { display:none; }
-            #player-names { font-size:0.55rem; }
-            #conn-status { font-size:0.6rem; }
-            .cell { width:24px; height:24px; font-size:13px; }
-            #chat { width:260px; }
-            #lobby-box { padding:16px; }
-            .size-btn { padding:6px 12px; font-size:0.8rem; }
-        }
-        @media (min-width:769px) { #chat-toggle { display:none; } }
-
-        /* ===== Multiplayer ===== */
-        .mp-btn { background:linear-gradient(135deg,#8e44ad,#9b59b6); color:#fff !important; box-shadow:0 4px 15px rgba(142,68,173,0.3); }
-        .mp-btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(142,68,173,0.4); }
-        #mp-room-id { font-size:2.2rem; letter-spacing:8px; font-weight:700; font-family:monospace; background:linear-gradient(135deg,#2c3e50,#3498db); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; padding:8px; }
-        .mp-player-list { margin:10px 0; text-align:right; }
-        .mp-player-row { display:flex; justify-content:space-between; align-items:center; padding:6px 10px; margin:3px 0; background:rgba(255,255,255,0.7); border-radius:8px; border:1px solid rgba(0,0,0,0.06); font-size:0.85rem; }
-        .mp-player-row.me { background:rgba(52,152,219,0.08); border-color:rgba(52,152,219,0.2); }
-        .mp-player-row .host-badge { background:linear-gradient(135deg,#f1c40f,#f39c12); color:#fff; padding:1px 8px; border-radius:10px; font-size:0.65rem; font-weight:700; margin-right:5px; }
-        .mp-player-row .ready-badge { padding:1px 8px; border-radius:10px; font-size:0.65rem; font-weight:700; }
-        .mp-player-row .ready-yes { background:#27ae60; color:#fff; }
-        .mp-player-row .ready-no { background:#95a5a6; color:#fff; }
-        .mp-player-count { font-size:0.8rem; color:#7f8c8d; }
-        .mp-mode-select { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0; }
-        .mp-mode-btn { padding:8px 16px; border:2px solid #ddd; border-radius:10px; background:#fff; cursor:pointer; font-size:0.8rem; font-weight:600; transition:all 0.15s; text-align:center; flex:1; min-width:90px; }
-        .mp-mode-btn:hover { border-color:#8e44ad; background:rgba(142,68,173,0.04); }
-        .mp-mode-btn.selected { border-color:#8e44ad; background:linear-gradient(135deg,#8e44ad,#9b59b6); color:#fff; box-shadow:0 4px 12px rgba(142,68,173,0.25); }
-        .mp-section { margin:10px 0; background:rgba(255,255,255,0.5); border-radius:12px; padding:12px; border:1px solid rgba(0,0,0,0.06); }
-        .mp-section h4 { font-size:0.9rem; color:#2c3e50; margin-bottom:8px; }
-        .mp-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
-        .mp-table th { background:#1a2332; color:#fff; padding:6px 8px; text-align:center; font-weight:600; }
-        .mp-table td { padding:5px 8px; text-align:center; border-bottom:1px solid rgba(0,0,0,0.05); }
-        .mp-table tr:nth-child(even) { background:rgba(0,0,0,0.02); }
-        .mp-table .rank-1 { background:rgba(241,196,15,0.12); font-weight:700; }
-        .mp-table .rank-2 { background:rgba(149,165,166,0.12); font-weight:600; }
-        .mp-table .rank-3 { background:rgba(205,132,72,0.12); font-weight:600; }
-        .mp-bracket { display:flex; flex-direction:column; gap:4px; margin:8px 0; }
-        .mp-match-card { padding:6px 10px; background:rgba(255,255,255,0.8); border-radius:8px; border:1px solid rgba(0,0,0,0.08); font-size:0.8rem; display:flex; justify-content:space-between; align-items:center; }
-        .mp-match-card.active { border-color:#27ae60; background:rgba(39,174,96,0.06); box-shadow:0 0 12px rgba(39,174,96,0.15); }
-        .mp-match-card.done { opacity:0.6; }
-        .mp-match-card .vs { color:#7f8c8d; font-weight:300; margin:0 6px; }
-        .mp-match-card .score { font-weight:700; }
-        .mp-match-card .mp-winner { color:#27ae60; }
-        .mp-match-card .mp-loser { color:#e74c3c; }
-        .mp-next-match { padding:10px; background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; border-radius:10px; text-align:center; font-weight:700; font-size:0.95rem; margin:8px 0; box-shadow:0 4px 15px rgba(39,174,96,0.25); }
-        .mp-notification { position:fixed; top:80px; left:50%; transform:translateX(-50%); padding:12px 24px; border-radius:20px; color:#fff; font-weight:700; font-size:1rem; z-index:99; box-shadow:0 8px 30px rgba(0,0,0,0.15); pointer-events:none; opacity:0; transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
-        .mp-notification.show { opacity:1; transform:translateX(-50%) scale(1); }
-        .mp-notification.info { background:linear-gradient(135deg,#2980b9,#3498db); }
-        .mp-notification.win { background:linear-gradient(135deg,#27ae60,#2ecc71); }
-        .mp-bracket-view { display:flex; gap:12px; overflow-x:auto; padding:8px 0; }
-        .mp-round-col { min-width:140px; }
-        .mp-round-col h5 { text-align:center; color:#7f8c8d; font-size:0.75rem; margin-bottom:6px; }
-        .mp-bracket-match { padding:4px 8px; margin:2px 0; border:1px solid #ddd; border-radius:6px; font-size:0.75rem; background:#fff; text-align:center; }
-        .mp-bracket-match .b-winner { color:#27ae60; font-weight:700; }
-        .mp-bracket-match .b-pending { color:#aaa; }
-        .btn-ghost-sm { padding:5px 12px; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; font-size:0.75rem; font-weight:500; transition:all 0.15s; }
-        .btn-ghost-sm:hover { background:#f5f5f5; border-color:#999; }
     </style>
 </head>
 <body>
-    <!-- ========== Lobby ========== -->
+
     <div id="lobby">
         <div id="lobby-box">
-            <h2>🎯 Quintet 30</h2>
+            <h2>🎯 قنص 30 (Quintet)</h2>
             <p class="sub">لعبة 5 في صف على شبكة <span id="lobby-size-label">30</span>×<span id="lobby-size-label2">30</span></p>
 
-            <!-- Grid size selector -->
             <div style="margin:12px 0 4px;">
                 <label style="font-size:0.82rem;font-weight:600;color:#555;display:block;margin-bottom:6px;">📐 حجم الشبكة:</label>
                 <div class="size-group">
@@ -403,2389 +165,669 @@
                 </div>
             </div>
 
-            <!-- Phase 1: Choose create or join -->
             <div id="phase-choose">
-                <button class="btn btn-host" id="btn-create">🚀 إنشاء غرفة</button>
+                <button class="btn btn-host" id="btn-create-lobby">🚀 إنشاء غرفة متعددة اللاعبين</button>
                 <hr style="margin:15px 0;border-color:#eee;">
-                <p>أو انضم لغرفة:</p>
-                <input type="text" id="join-input" placeholder="123" maxlength="3" inputmode="numeric" pattern="[0-9]*">
-                <button class="btn btn-join" id="btn-join">🔗 انضمام</button>
-                <div id="status-msg" class="status-wait"></div>
-                <div style="margin:12px 0;">
-                    <button class="btn btn-ai" id="btn-ai">🤖 العب ضد الكمبيوتر</button>
-                </div>
-                <div style="margin-top:4px;">
-                    <button id="btn-adv" style="background:none;border:none;color:#3498db;cursor:pointer;font-size:0.8rem;">⚙️ إعدادات متقدمة</button>
-                    <div id="adv-settings" class="hidden" style="margin-top:6px;padding:8px;background:#f8f9fa;border-radius:8px;text-align:right;">
-                        <label style="font-size:0.8rem;color:#555;display:block;margin-bottom:3px;">خادم PeerJS:</label>
-                        <input type="text" id="peer-server-input" value="0.peerjs.com" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.8rem;direction:ltr;text-align:left;font-family:monospace;">
-                        <div style="font-size:0.75rem;color:#888;margin-top:4px;">غيّر هذا إذا كان الخادم الافتراضي لا يعمل. مثال: peerjs.jns42.com</div>
-                        <button id="btn-test-peer" style="margin-top:6px;padding:4px 10px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.75rem;">🔍 اختبار الاتصال</button>
-                        <span id="test-peer-result" style="font-size:0.75rem;margin-right:6px;"></span>
-                    </div>
+                <p>أدخل معرف الغرفة للانضمام كلاعب أو مشاهد:</p>
+                <input type="text" id="join-input" placeholder="Q30-XXXXX">
+                <button class="btn btn-join" id="btn-join-lobby">🔗 انضمام للغرفة</button>
+                <div id="status-msg"></div>
+                <div style="margin-top:10px;">
+                    <button class="btn btn-ai" id="btn-vs-ai">🤖 اللعب ضد الحاسوب (فردي)</button>
                 </div>
             </div>
 
-            <!-- Phase 4: AI Name setup -->
-            <div id="phase-ai-name" class="hidden">
-                <p style="font-weight:bold;color:#1a2332;">🤖 ادخل اسمك لبدء اللعب ضد الكمبيوتر</p>
-                <p style="font-size:0.8rem;color:#555;" id="ai-phase-size">📐 شبكة <span id="ai-size-txt">30</span>×<span id="ai-size-txt2">30</span></p>
-                <div class="name-field" style="margin-top:12px;">
-                    <label>👤 اسمك ( X ):</label>
-                    <input type="text" id="ai-name-input" placeholder="أدخل اسمك" maxlength="20">
+            <div id="phase-room" class="hidden">
+                <p style="font-size:0.9rem;color:#555;">شارك معرف الغرفة التالي مع الآخرين:</p>
+                <div id="room-id">Q30-XXXXX</div>
+                <div style="margin:12px 0; background:#f5f5f5; padding:8px; border-radius:10px;">
+                    <div style="font-size:0.8rem;font-weight:600;color:#333;margin-bottom:6px;text-align:right;">📋 الحاضرون في الغرفة:</div>
+                    <div id="lobby-players-list"></div>
                 </div>
-                <button class="btn btn-start" id="btn-start-ai">🎮 ابدأ اللعب!</button>
-                <div style="margin-top:8px;">
-                    <button class="btn btn-cancel" id="btn-ai-cancel">إلغاء</button>
-                </div>
-            </div>
-
-            <!-- Phase 5: Multiplayer mode select (create/join) -->
-            <div id="phase-mp-choose" class="hidden">
-                <button class="btn mp-btn" id="btn-mp-create">🚀 إنشاء غرفة جماعية</button>
-                <hr style="margin:15px 0;border-color:#eee;">
-                <p>أو انضم إلى غرفة جماعية:</p>
-                <input type="text" id="mp-join-input" placeholder="أدخل كود الغرفة" maxlength="10" inputmode="text" style="direction:ltr;text-align:center;font-family:monospace;font-size:1.1rem;letter-spacing:2px;">
-                <button class="btn btn-join" id="btn-mp-join">🔗 انضمام</button>
-                <div id="mp-status-msg" class="status-wait" style="min-height:22px;margin-top:8px;"></div>
-                <!-- Resume saved competition -->
-                <div id="mp-resume-section" class="hidden" style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;">
-                    <p style="font-size:0.82rem;font-weight:600;color:#555;margin-bottom:6px;">📂 مسابقات محفوظة:</p>
-                    <div id="mp-saved-list"></div>
-                    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-                        <button class="btn-ghost-sm" id="btn-mp-import-lobby">📤 استيراد من ملف JSON</button>
-                        <button class="btn-ghost-sm" id="btn-mp-cloud-restore">☁️ استيراد من رابط سحابي</button>
-                    </div>
-                    <div id="mp-cloud-restore-input" class="hidden" style="margin-top:6px;display:flex;gap:6px;">
-                        <input type="url" id="mp-cloud-url-input" placeholder="https://jsonblob.com/api/jsonBlob/..." style="flex:1;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.8rem;direction:ltr;">
-                        <button class="btn-ghost-sm" id="btn-mp-cloud-load">تحميل</button>
-                    </div>
-                </div>
-                <input type="file" id="mp-import-lobby-file" accept=".json" style="display:none;">
-                <div style="margin-top:12px;">
-                    <button class="btn btn-cancel" id="btn-mp-back">رجوع</button>
-                </div>
-            </div>
-
-            <!-- Phase 6: Multiplayer host waiting -->
-            <div id="phase-mp-host" class="hidden">
-                <p style="color:#27ae60;font-weight:bold;">✅ تم إنشاء الغرفة الجماعية</p>
-                <p style="font-size:0.8rem;color:#555;">شارك هذا الكود مع اللاعبين:</p>
-                <div id="mp-room-id">---</div>
-                <p style="font-size:0.8rem;color:#7f8c8d;" id="mp-host-wait-msg">في انتظار انضمام اللاعبين... (0)</p>
-                <div class="mp-player-list" id="mp-host-player-list"></div>
-                <button class="btn btn-cancel" id="btn-mp-host-cancel">إلغاء</button>
-            </div>
-
-            <!-- Phase 7: Multiplayer join room -->
-            <div id="phase-mp-join" class="hidden">
-                <p style="font-weight:bold;color:#1a2332;">🔗 جاري الانضمام إلى الغرفة...</p>
-                <p id="mp-join-status" style="font-size:0.85rem;color:#7f8c8d;margin-top:8px;">جاري الاتصال...</p>
-                <button class="btn btn-cancel" id="btn-mp-join-cancel">إلغاء</button>
-            </div>
-
-            <!-- Phase 8: Multiplayer player lobby -->
-            <div id="phase-mp-lobby" class="hidden">
-                <p style="font-weight:bold;color:#1a2332;">👥 غرفة متعددة اللاعبين</p>
-                <p id="mp-lobby-code" style="font-size:0.85rem;color:#27ae60;font-weight:700;letter-spacing:2px;background:rgba(39,174,96,0.08);padding:4px 12px;border-radius:8px;display:inline-block;margin-bottom:4px;">📋 الكود: ---</p>
-                <p style="font-size:0.8rem;color:#7f8c8d;">📐 شبكة <span id="mp-lobby-size">30</span>×<span id="mp-lobby-size2">30</span></p>
-                <div id="mp-host-size-select" class="hidden" style="margin:4px 0 6px;">
-                    <label style="font-size:0.75rem;font-weight:600;color:#555;display:block;margin-bottom:3px;">📐 حجم الشبكة:</label>
-                    <div class="size-group">
-                        <button class="size-btn" data-size="15">15×15</button>
-                        <button class="size-btn" data-size="20">20×20</button>
-                        <button class="size-btn selected-size" data-size="30">30×30</button>
-                    </div>
-                </div>
-                <p style="font-size:0.8rem;color:#7f8c8d;" class="mp-player-count" id="mp-lobby-count">0 لاعب</p>
-                <div class="mp-player-list" id="mp-player-list"></div>
-                <div style="margin:8px 0;">
-                    <button class="btn" id="btn-mp-ready" style="min-width:120px;">✅ جاهز</button>
-                </div>
-                <div id="mp-host-controls" class="hidden" style="border-top:1px solid #eee;padding-top:10px;margin-top:6px;">
-                    <p style="font-size:0.82rem;font-weight:600;color:#555;margin-bottom:6px;">🎯 اختر نظام المسابقة:</p>
-                    <div class="mp-mode-select">
-                        <button class="mp-mode-btn selected" data-mode="league">🏆 دوري</button>
-                        <button class="mp-mode-btn" data-mode="tournament">⚔️ بطولة</button>
-                        <button class="mp-mode-btn" data-mode="groups">🌍 مجموعات+بطولة</button>
-                    </div>
-                    <div style="margin-top:8px;">
-                        <button class="btn btn-start" id="btn-mp-start">🎮 بدء المسابقة!</button>
-                    </div>
-                </div>
-                <div style="margin-top:8px;">
-                    <button class="btn btn-cancel" id="btn-mp-leave">🚪 مغادرة الغرفة</button>
-                </div>
-            </div>
-
-            <!-- Phase 9: Multiplayer competition view -->
-            <div id="phase-mp-competition" class="hidden">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
-                    <span style="font-weight:700;color:#1a2332;font-size:0.9rem;">🏆 المسابقة</span>
-                    <span id="mp-comp-mode" style="font-size:0.75rem;color:#8e44ad;font-weight:600;background:rgba(142,68,173,0.1);padding:3px 10px;border-radius:10px;"></span>
-                </div>
-                <div id="mp-comp-content" style="margin-top:8px;">
-                    <!-- Standings / Bracket rendered here -->
-                </div>
-                <div id="mp-cloud-status" style="margin-top:4px;font-size:0.7rem;color:#7f8c8d;text-align:center;display:none;">
-                    ☁️ <a id="mp-cloud-link" href="#" target="_blank" style="color:#3498db;"></a>
-                </div>
-                <div id="mp-match-area" class="hidden" style="margin-top:8px;border-top:1px solid #eee;padding-top:8px;">
-                    <div id="mp-match-notice" class="mp-next-match"></div>
-                    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-                        <span style="font-size:0.75rem;color:#7f8c8d;flex:1;">👆 إذا كنت أحد اللاعبين، انقر على الشبكة للعب</span>
-                        <button id="btn-mp-standings" style="background:#8e44ad;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:0.75rem;cursor:pointer;font-weight:600;">🏆 الترتيب</button>
-                    </div>
-                </div>
-                <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-                    <button class="btn-ghost-sm" id="btn-mp-export">📥 تصدير</button>
-                    <button class="btn-ghost-sm" id="btn-mp-import">📤 استيراد</button>
-                    <button class="btn btn-cancel" id="btn-mp-exit-comp" style="margin-right:auto;">🚪 إنهاء</button>
-                </div>
-                <input type="file" id="mp-import-file" accept=".json" style="display:none;">
-            </div>
-
-            <!-- Phase 2: Host waiting -->
-            <div id="phase-host" class="hidden">
-                <p style="color:#27ae60;font-weight:bold;">✅ تم إنشاء الغرفة</p>
-                <p style="font-size:0.85rem;color:#555;" id="host-size-info">📐 شبكة <span id="host-size-txt">30×30</span></p>
-                <p>شارك هذا الكود مع صديقك:</p>
-                <div id="room-id">---</div>
-                <p style="font-size:0.85rem;color:#7f8c8d;">في انتظار الانضمام...</p>
-                <button class="btn btn-cancel" id="btn-cancel">إلغاء</button>
-            </div>
-
-            <!-- Phase 3: Name setup (after connection) -->
-            <div id="phase-names" class="hidden">
-                <p style="font-weight:bold;color:#1a2332;">👥 تم الاتصال! أدخل اسمك:</p>
-                <p style="font-size:0.8rem;color:#555;" id="name-phase-size">📐 شبكة <span id="name-size-txt">30</span>×<span id="name-size-txt2">30</span></p>
-                <div class="name-field" style="margin-top:10px;">
-                    <label id="name-field-label">👤 اسمك:</label>
-                    <input type="text" id="my-name-input" placeholder="أدخل اسمك" maxlength="20">
-                </div>
-                <button class="btn btn-join" id="btn-confirm-name">تأكيد الاسم ✅</button>
-                <div id="opponent-ready" style="margin-top:8px;min-height:24px;"></div>
-                <div id="start-game-area" class="hidden" style="margin-top:10px;border-top:1px solid #eee;padding-top:12px;">
-                    <p style="color:#27ae60;font-weight:bold;">✅ تم تأكيد اسمي اللاعبين</p>
-                    <p style="font-size:0.85rem;color:#555;" id="both-names-display"></p>
-                    <button class="btn btn-start" id="btn-start-game">🎮 ابدأ المباراة!</button>
-                </div>
+                <button class="btn btn-start" id="btn-ready-toggle">✋ أنا مستعد</button>
+                <br><br>
+                <button class="btn btn-cancel" id="btn-leave-lobby" onclick="location.reload()">🚪 مغادرة الغرفة</button>
             </div>
         </div>
     </div>
 
-    <!-- ========== Header ========== -->
     <div id="header">
-        <div id="logo">✦ Quintet <span>30</span></div>
-        <div id="player-names"><span class="pname-x" id="pn-x">X</span> | <span class="pname-o" id="pn-o">O</span></div>
+        <div id="logo">🎯 Quintet <span>30</span></div>
         <div id="scores">
-            <div><span class="score-x" id="pn-score-x">X</span> <span class="score-num" id="sc-x">0</span></div>
-            <div><span class="score-o" id="pn-score-o">O</span> <span class="score-num" id="sc-o">0</span></div>
+            <span class="score-x">X (<span id="name-x-ui">لاعب 1</span>): <span id="score-x" class="score-num">0</span></span>
+            <span class="score-o">O (<span id="name-o-ui">لاعب 2</span>): <span id="score-o" class="score-num">0</span></span>
         </div>
         <div id="turn-box">
-            <span id="my-symbol"></span>
-            <div id="turn-indicator" class="waiting">⏳ انتظر...</div>
-            <span id="conn-status">
-                <span id="conn-dot"></span>
-                <span id="conn-txt">غير متصل</span>
-            </span>
+            <span id="my-symbol">👀 مشاهد</span>
+            <span id="turn-indicator" class="waiting">بانتظار البداية</span>
+        </div>
+        <div id="conn-status">
+            <span id="conn-dot" class="disconnected"></span>
+            <span id="conn-text">غير متصل</span>
         </div>
     </div>
 
-    <!-- ========== Control Bar ========== -->
     <div id="ctrl-bar">
         <div class="ctrl-group">
-            <span class="ctrl-label">🔍 تكبير:</span>
-            <button id="zoom-in">+</button>
-            <button id="zoom-out">−</button>
+            <button id="btn-rematch" disabled>🔄 جولة جديدة</button>
+            <button id="btn-lobby-return" onclick="location.reload()">🏠 اللوبي</button>
         </div>
-        <div class="ctrl-group">
-            <span class="ctrl-label" id="rematch-label">🔄</span>
-            <button id="btn-rematch">طلب إعادة المباراة</button>
-        </div>
-        <div class="ctrl-group">
-            <span class="ctrl-label"># المربعات المستعملة: <span id="used-count">0</span></span>
-        </div>
-        <div class="ctrl-group">
-            <button id="btn-surrender" style="background:#e74c3c;color:#fff;border-color:#c0392b;">🏳️ انسحاب</button>
+        <div id="player-names">
+            <span class="pname-x">X: ---</span> | <span class="pname-o">O: ---</span>
         </div>
     </div>
 
-    <div id="invite-banner">🎮 تم الاتصال! هيا نلعب</div>
-
-    <!-- ========== Game ========== -->
     <div id="game-area">
-        <div id="board-container"><div id="board"></div></div>
+        <div id="board-container">
+            <div id="board"></div>
+        </div>
+
         <div id="chat">
-            <div id="chat-head"><span>💬 الدردشة</span><span class="chatter" id="chat-status"></span></div>
+            <div id="chat-head">💬 دردشة الغرفة</div>
             <div id="chat-msgs"></div>
-            <div id="chat-input">
-                <input type="text" id="c-txt" placeholder="رسالة..." maxlength="120" disabled>
-                <button id="c-send" disabled>➤</button>
-            </div>
+            <form id="chat-input" onsubmit="return false;">
+                <input type="text" id="chat-txt" placeholder="اكتب هنا..." disabled>
+                <button type="submit" id="chat-send" disabled>إرسال</button>
+            </form>
         </div>
     </div>
+
     <button id="chat-toggle">💬</button>
 
-    <!-- ========== Modal ========== -->
     <div id="modal">
         <div id="modal-content">
-            <h2>🏁 <span id="modal-title">انتهت اللعبة!</span></h2>
-            <div class="score-display">
-                <span id="fn-x-label" class="score-x">X</span>
-                <span> <span id="fin-x">0</span> </span>
-                <span style="color:#ccc;font-weight:300;">|</span>
-                <span id="fn-o-label" class="score-o">O</span>
-                <span> <span id="fin-o">0</span> </span>
-            </div>
-            <p id="win-txt" style="font-size:1.1rem;font-weight:700;margin:10px 0;"></p>
-            <div id="rematch-status" class="rematch-req"></div>
-            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px;">
-                <button id="btn-rematch-yes" class="btn-accept">🔄 قبول إعادة المباراة</button>
-                <button id="btn-close-modal" class="btn-ghost">✕ إغلاق</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Standings Overlay -->
-    <div id="standings-overlay" class="hidden" style="position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;padding:20px;">
-        <div style="background:#fff;border-radius:16px;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-weight:700;font-size:1rem;">🏆 الترتيب والنتائج</span>
-                <button id="btn-close-standings" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#888;">✕</button>
-            </div>
-            <div id="standings-content"></div>
+            <h2 id="modal-title">انتهت الجولة!</h2>
+            <p id="modal-body"></p>
+            <button id="modal-btn-rematch" style="padding:10px 20px; background:#3498db; color:#fff; border:none; border-radius:5px; cursor:pointer;">جولة جديدة</button>
         </div>
     </div>
 
     <script>
-        const DIRS = [[0,1],[1,0],[1,1],[1,-1]];
-        const boardEl = document.getElementById('board');
-        let gridSize = 30, CELL = 28, WIN = 5;
-        let board, used, curPlayer, scores, moves, zoom, winLines;
-        let isHost = false, mySym = 'X', myName = '', opponentName = '';
-        let peer = null, conn = null, roomCode = '';
-        let gameOver = false, gameMode = 'p2p';
-        let rematchRequested = false, opponentRematchRequested = false;
-        let nameConfirmed = false, opponentNameConfirmed = false;
-        let peerServer = '0.peerjs.com';
+        const id = x => document.getElementById(x);
+        const q = x => document.querySelector(x);
+        const qA = x => document.querySelectorAll(x);
 
-        function initGameState() {
-            board = Array.from({length:gridSize},()=>Array(gridSize).fill(null));
-            used = Array.from({length:gridSize},()=>Array(gridSize).fill(false));
-            curPlayer = 'X'; scores = {X:0,O:0}; moves = 0; zoom = 1; winLines = [];
-            gameOver = false;
-        }
-        initGameState();
+        let BOARD_SIZE = 30;
+        let board = [];
+        let curPlayer = 'X';
+        let gameOver = false;
+        let scoreX = 0;
+        let scoreO = 0;
+        let p1Name = 'لاعب 1';
+        let p2Name = 'لاعب 2';
+        let isAI = false;
 
-        function id(name) { return document.getElementById(name); }
-
-        function updateTurnUI() {
-            const ti = id('turn-indicator');
-            if (gameMode === 'ai') {
-                if (gameOver) { ti.textContent = '🏁 انتهت'; ti.className = 'ended'; return; }
-                if (curPlayer === mySym) { ti.textContent = '🎯 دورك!'; ti.className = 'your-turn'; }
-                else { ti.textContent = `⏳ دور ${getPlayerName(curPlayer)}`; ti.className = 'waiting'; }
-                return;
+        // إعدادات الـ Peer السحابية المطورة لكسر حظر شركات الاتصالات وجدران الحماية بالكامل
+        const PEER_CONFIG = {
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            secure: true,
+            debug: 1,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    { urls: 'stun:stun.services.mozilla.com' },
+                    { urls: 'stun:stun.anyfirewall.com:3478' },
+                    { urls: 'stun:stun.mit.edu:3478' }
+                ],
+                sdpSemantics: 'unified-plan'
             }
-            if (!conn || !conn.open) { ti.textContent = '🔴 غير متصل'; ti.className = 'ended'; return; }
-            if (gameOver) { ti.textContent = '🏁 انتهت'; ti.className = 'ended'; return; }
-            if (curPlayer === mySym) { ti.textContent = '🎯 دورك!'; ti.className = 'your-turn'; }
-            else { ti.textContent = `⏳ دور ${getPlayerName(curPlayer)}`; ti.className = 'waiting'; }
-        }
+        };
 
-        function getPlayerName(sym) {
-            if (sym === mySym) return myName || 'X';
-            return opponentName || 'O';
-        }
+        const mpState = {
+            isMultiplayer: false,
+            isHost: false,
+            peer: null,
+            myId: null,
+            hostId: null,
+            connections: {}, 
+            peersList: [], 
+            matches: [],
+            currentMatchIdx: -1,
+            matchActive: false,
+            myReady: false
+        };
 
-        function updateNamesUI() {
-            id('pn-x').textContent = mySym === 'X' ? myName : opponentName;
-            id('pn-o').textContent = mySym === 'O' ? myName : opponentName;
-            id('pn-score-x').textContent = mySym === 'X' ? myName : opponentName;
-            id('pn-score-o').textContent = mySym === 'O' ? myName : opponentName;
-            id('fn-x-label').textContent = mySym === 'X' ? myName : opponentName;
-            id('fn-o-label').textContent = mySym === 'O' ? myName : opponentName;
-            id('chat-status').textContent = myName && opponentName ? `${myName} - ${opponentName}` : '';
-        }
-
-        function updateConnUI(online, txt) {
-            if (gameMode === 'ai') {
-                id('conn-dot').className = 'online';
-                id('conn-txt').textContent = '🤖 ضد الكمبيوتر';
-                return;
-            }
-            if (gameMode === 'mp') {
-                id('conn-dot').className = 'online';
-                id('conn-txt').textContent = '👥 جماعي';
-                return;
-            }
-            const dot = id('conn-dot');
-            dot.className = online ? 'online' : (txt === 'انقطع' ? 'disconnected' : '');
-            id('conn-txt').textContent = txt || (online ? 'متصل' : 'غير متصل');
-            const disabled = !online || gameOver;
-            id('c-txt').disabled = disabled;
-            id('c-send').disabled = disabled;
-        }
-
-        function updateScoreUI() {
-            id('sc-x').textContent = scores.X;
-            id('sc-o').textContent = scores.O;
-        }
-
-        function updateMySymUI() {
-            const el = id('my-symbol');
-            if (myName) {
-                el.textContent = `🎮 ${myName}`;
-                el.style.color = mySym === 'X' ? '#3498db' : '#e74c3c';
-            } else {
-                el.textContent = '';
-            }
-        }
+        // إدارة لوحة اللعب الأصلية وحجمها التفاعلي
+        qA('.size-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (mpState.isMultiplayer) return;
+                qA('.size-btn').forEach(b => b.classList.remove('selected-size'));
+                this.classList.add('selected-size');
+                BOARD_SIZE = parseInt(this.dataset.size);
+                id('lobby-size-label').textContent = BOARD_SIZE;
+                id('lobby-size-label2').textContent = BOARD_SIZE;
+                renderBoard();
+            });
+        });
 
         function renderBoard() {
-            boardEl.innerHTML = '';
-            boardEl.style.width = `${gridSize * CELL}px`;
-            boardEl.style.height = `${gridSize * CELL}px`;
-            for (let r = 0; r < gridSize; r++) {
-                for (let c = 0; c < gridSize; c++) {
-                    const el = document.createElement('div');
-                    el.className = 'cell';
-                    el.dataset.r = r; el.dataset.c = c;
-                    el.style.right = `${c * CELL}px`;
-                    el.style.top = `${r * CELL}px`;
-                    el.onclick = () => onCellClick(r, c);
-                    boardEl.appendChild(el);
+            const bEl = id('board');
+            bEl.innerHTML = '';
+            bEl.style.width = (BOARD_SIZE * 28) + 'px';
+            bEl.style.height = (BOARD_SIZE * 28) + 'px';
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.style.right = (c * 28) + 'px';
+                    cell.style.top = (r * 28) + 'px';
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    cell.addEventListener('click', () => handleCellClick(r, c));
+                    bEl.appendChild(cell);
                 }
             }
-            syncBoardUI();
         }
 
-        function syncBoardUI() {
-            for (let r = 0; r < gridSize; r++) {
-                for (let c = 0; c < gridSize; c++) {
-                    const el = document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-                    if (!el) continue;
-                    const val = board[r][c];
-                    const isUsed = used[r][c];
-                    el.textContent = isUsed ? '' : (val || '');
-                    el.className = 'cell';
-                    if (val && !isUsed) el.classList.add(val.toLowerCase());
-                    if (isUsed) el.classList.add('used');
-                    if (gameOver) el.classList.add('disabled');
-                }
-            }
-            id('used-count').textContent = used.flat().filter(Boolean).length;
-        }
-
-        function onCellClick(r, c) {
-            if (gameOver || gameMode === 'mp') return;
-            if (board[r][c] !== null) return;
-            if (used[r][c]) return;
-            if (gameMode === 'ai') {
+        // منطق النقر والتحقق من الأدوار والذكاء الاصطناعي الأصلي
+        function handleCellClick(r, c) {
+            if (gameOver) return;
+            if (mpState.isMultiplayer) {
+                if (!mpState.matchActive) return;
+                const match = mpState.matches[mpState.currentMatchIdx];
+                if (!match) return;
+                const isP1 = mpState.myId === mpState.matchP1Id;
+                const isP2 = mpState.myId === mpState.matchP2Id;
+                if (!isP1 && !isP2) return; 
+                const mySym = isP1 ? 'X' : 'O';
                 if (curPlayer !== mySym) return;
-                doMove(r, c, mySym);
-                if (!gameOver && gameMode === 'ai') setTimeout(aiMove, 400);
+                if (board[r][c] !== null) return;
+
+                executeMove(r, c);
+                broadcast({ type: 'MOVE', r, c, player: mySym });
                 return;
             }
-            if (!conn || !conn.open) return;
-            if (curPlayer !== mySym) return;
-            doMove(r, c, mySym);
+
+            if (board[r][c] !== null) return;
+            executeMove(r, c);
+
+            if (isAI && !gameOver && curPlayer === 'O') {
+                setTimeout(executeAIMove, 400);
+            }
         }
 
-        function drawWinLine(cells, p) {
-            const start = cells[0], end = cells[cells.length - 1];
-            const x1 = (gridSize - 1 - start.c) * CELL + CELL/2;
-            const y1 = start.r * CELL + CELL/2;
-            const x2 = (gridSize - 1 - end.c) * CELL + CELL/2;
-            const y2 = end.r * CELL + CELL/2;
-            const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-            svg.setAttribute('style','position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;');
-            svg.setAttribute('viewBox',`0 0 ${gridSize*CELL} ${gridSize*CELL}`);
-            const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-            line.setAttribute('x1',x1); line.setAttribute('y1',y1);
-            line.setAttribute('x2',x2); line.setAttribute('y2',y2);
-            line.setAttribute('stroke', p === 'X' ? '#3498db' : '#e74c3c');
-            line.setAttribute('stroke-width','3.5');
-            line.setAttribute('stroke-linecap','round');
-            line.setAttribute('opacity','0.85');
-            svg.appendChild(line);
-            boardEl.appendChild(svg);
-            winLines.push(svg);
-        }
+        function executeMove(r, c) {
+            board[r][c] = curPlayer;
+            const cell = q(`.cell[data-r='${r}'][data-c='${c}']`);
+            if (cell) {
+                cell.textContent = curPlayer;
+                cell.classList.add(curPlayer.toLowerCase());
+            }
 
-        function doMove(r, c, p) {
-            if (board[r][c] !== null) return false;
-            if (used[r][c]) return false;
-            board[r][c] = p;
-            moves++;
-            const wins = findAllWins(r, c, p);
-            if (wins.length > 0) {
-                for (const winCells of wins) {
-                    scores[p] += 1;
-                    for (const cell of winCells) used[cell.r][cell.c] = true;
-                    highlightWin(winCells, p);
-                    drawWinLine(winCells, p);
-                }
-                syncBoardUI();
+            if (checkWin(r, c)) {
+                highlightWin(r, c);
+                endMatch(curPlayer);
+                return;
             }
-            syncBoardUI();
-            updateScoreUI();
-            const allUsed = used.flat().every(v => v);
-            if (allUsed || moves >= gridSize * gridSize) {
-                gameOver = true; showEnd();
-                if (conn && conn.open && gameMode !== 'mp' && gameMode !== 'ai') conn.send({type:'game_end',scores:{...scores},winner:scores.X>scores.O?'X':scores.O>scores.X?'O':'draw',used:used});
-                updateTurnUI(); return true;
+
+            if (checkDraw()) {
+                endMatch('DRAW');
+                return;
             }
+
             curPlayer = curPlayer === 'X' ? 'O' : 'X';
             updateTurnUI();
-            if (conn && conn.open && gameMode !== 'mp' && gameMode !== 'ai') conn.send({type:'move',r,c,p,pts:wins.length,scores:{...scores},cur:curPlayer,used:used});
+        }
+
+        function checkWin(r, c) {
+            const sym = board[r][c];
+            const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
+            for (let [dr, dc] of dirs) {
+                let count = 1;
+                let nr = r + dr, nc = c + dc;
+                while(nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === sym) { count++; nr += dr; nc += dc; }
+                nr = r - dr; nc = c - dc;
+                while(nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === sym) { count++; nr -= dr; nc -= dc; }
+                if (count >= 5) return true;
+            }
+            return false;
+        }
+
+        function highlightWin(r, c) {
+            const sym = board[r][c];
+            const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
+            for (let [dr, dc] of dirs) {
+                let cells = [[r, c]];
+                let nr = r + dr, nc = c + dc;
+                while(nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === sym) { cells.push([nr, nc]); nr += dr; nc += dc; }
+                nr = r - dr; nc = c - dc;
+                while(nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === sym) { cells.push([nr, nc]); nr -= dr; nc -= dc; }
+                if (cells.length >= 5) {
+                    cells.forEach(([rr, cc]) => {
+                        const cell = q(`.cell[data-r='${rr}'][data-c='${cc}']`);
+                        if (cell) cell.classList.add('glow');
+                    });
+                    break;
+                }
+            }
+        }
+
+        function checkDraw() {
+            for(let r=0; r<BOARD_SIZE; r++) {
+                for(let c=0; c<BOARD_SIZE; c++) { if (board[r][c] === null) return false; }
+            }
             return true;
         }
 
-        function doSurrender(p) {
-            if (gameOver) return;
-            let empty = 0;
-            for (let r = 0; r < gridSize; r++)
-                for (let c = 0; c < gridSize; c++)
-                    if (board[r][c] === null && !used[r][c]) empty++;
-            const goals = Math.floor(empty / 5) + 1;
-            if (p === 'X') scores.O += goals; else scores.X += goals;
+        function endMatch(winner) {
             gameOver = true;
-            updateScoreUI(); syncBoardUI();
-            if (gameMode === 'mp') return;
-            showEnd(); updateTurnUI();
+            if (winner === 'X') scoreX++;
+            else if (winner === 'O') scoreO++;
+            updateScoreUI();
+            updateTurnUI();
+
+            let msg = '';
+            if (winner === 'DRAW') msg = 'تعادل تعادل! انتهت المباراة بدون فائز.';
+            else {
+                const wName = winner === 'X' ? p1Name : p2Name;
+                msg = `🎉 الفائز هو اللاعب [ ${wName} ] بعد تحقيق 5 رموز متتالية!`;
+            }
+
+            id('modal-body').textContent = msg;
+            id('modal').style.display = 'flex';
+
+            if (mpState.isMultiplayer) {
+                if (mpState.isHost) id('btn-rematch').disabled = false;
+            } else {
+                id('btn-rematch').disabled = false;
+            }
         }
 
-        function findAllWins(r, c, p) {
-            const results = [];
-            for (const [dr, dc] of DIRS) {
-                const line = [{r,c}];
-                let tr = r - dr, tc = c - dc;
-                while (tr >= 0 && tr < gridSize && tc >= 0 && tc < gridSize) { line.unshift({r:tr,c:tc}); tr -= dr; tc -= dc; }
-                tr = r + dr; tc = c + dc;
-                while (tr >= 0 && tr < gridSize && tc >= 0 && tc < gridSize) { line.push({r:tr,c:tc}); tr += dr; tc += dc; }
-                for (let i = 0; i <= line.length - WIN; i++) {
-                    const seg = line.slice(i, i + WIN);
-                    if (seg.every(x => board[x.r][x.c] === p) && !seg.some(x => used[x.r][x.c]) && seg.some(x => x.r === r && x.c === c)) {
-                        results.push(seg);
+        // محرك الذكاء الاصطناعي الفردي الأصلي
+        function executeAIMove() {
+            let best = null; let maxScore = -1;
+            for (let r=0; r<BOARD_SIZE; r++) {
+                for (let c=0; c<BOARD_SIZE; c++) {
+                    if (board[r][c] === null) {
+                        let score = evaluateCell(r, c);
+                        if (score > maxScore) { maxScore = score; best = {r, c}; }
                     }
                 }
             }
-            return results;
+            if (best) executeMove(best.r, best.best || best.c);
         }
 
-        function highlightWin(cells, p) {
-            cells.forEach(({r,c}) => {
-                const el = document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-                if (el) el.classList.add('glow');
-            });
-        }
-
-        function showEnd() {
-            if (gameMode === 'mp') { return; }
-            id('fin-x').textContent = scores.X;
-            id('fin-o').textContent = scores.O;
-            const isDraw = scores.X === scores.O;
-            if (gameMode === 'ai') {
-                id('win-txt').innerHTML = scores.X > scores.O ? `🏆 <span class="score-x">${myName||'أنت'} يفوز!</span>` :
-                    scores.O > scores.X ? `🤖 <span class="score-o">${opponentName||'الكمبيوتر'} يفوز!</span>` : '🤝 تعادل!';
-                id('rematch-status').textContent = '';
-                id('btn-rematch-yes').style.display = '';
-                id('btn-rematch-yes').textContent = '🔄 العب مرة أخرى';
-                id('btn-rematch-yes').className = 'btn-accept';
-                id('modal-title').textContent = isDraw ? '🤝 تعادل!' : 'انتهت اللعبة!';
-                id('modal').style.display = 'flex';
-                return;
+        function evaluateCell(r, c) {
+            let total = 0;
+            const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
+            for (let [dr, dc] of dirs) {
+                let oCount = 0, xCount = 0;
+                for (let i = -4; i <= 4; i++) {
+                    if (i === 0) continue;
+                    let nr = r + dr*i, nc = c + dc*i;
+                    if (nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE) {
+                        if (board[nr][nc] === 'O') oCount++;
+                        else if (board[nr][nc] === 'X') xCount++;
+                    }
+                }
+                if (oCount === 4) total += 100000;
+                else if (xCount === 4) total += 50000;
+                else if (oCount === 3) total += 1000;
+                else if (xCount === 3) total += 500;
+                else total += (oCount * 10 + xCount * 5);
             }
-            id('btn-rematch-yes').textContent = '🔄 قبول إعادة المباراة';
-            id('win-txt').innerHTML = scores.X > scores.O ? `🏆 <span class="score-x">${getPlayerName('X')} يفوز!</span>` :
-                scores.O > scores.X ? `🏆 <span class="score-o">${getPlayerName('O')} يفوز!</span>` : '🤝 تعادل!';
-            rematchRequested = false; opponentRematchRequested = false;
-            id('rematch-status').textContent = '';
-            id('btn-rematch-yes').style.display = '';
-            id('modal-title').textContent = 'انتهت اللعبة!';
-            id('modal').style.display = 'flex';
-            updateRematchBtn();
+            return total + (Math.random() * 2);
         }
 
-        function requestRematch() {
-            if (!conn || !conn.open) return;
-            rematchRequested = true;
-            id('rematch-status').textContent = '⏳ في انتظار موافقة الخصم...';
-            id('btn-rematch-yes').disabled = true;
-            conn.send({type:'rematch_req'});
-            updateRematchBtn();
-        }
+        // أزرار الواجهة وتجهيز النمط الفردي
+        id('btn-vs-ai').addEventListener('click', () => {
+            isAI = true; mpState.isMultiplayer = false;
+            p1Name = 'أنت (X)'; p2Name = 'الحاسوب (O)';
+            updateNamesUI(); id('lobby').style.display = 'none';
+            id('my-symbol').textContent = '👤 أنت (X)';
+            startNewMatch();
+        });
 
-        function acceptRematch() {
-            if (gameMode === 'ai') {
-                doResetGame(); startAiGame();
-                if (Math.random() < 0.5) setTimeout(aiMove, 600);
-                return;
-            }
-            if (!conn || !conn.open) return;
-            conn.send({type:'rematch_accept'}); doResetGame();
-        }
-
-        function doResetGame() {
-            board = Array.from({length:gridSize},()=>Array(gridSize).fill(null));
-            used = Array.from({length:gridSize},()=>Array(gridSize).fill(false));
-            curPlayer = 'X'; scores = {X:0,O:0}; moves = 0; gameOver = false;
-            rematchRequested = false; opponentRematchRequested = false;
-            document.querySelectorAll('.glow').forEach(e => e.classList.remove('glow'));
-            for (const svg of winLines) svg.remove();
-            winLines = [];
-            syncBoardUI(); updateScoreUI();
+        id('btn-rematch').addEventListener('click', handleRematchRequest);
+        id('modal-btn-rematch').addEventListener('click', () => {
             id('modal').style.display = 'none';
-            id('rematch-status').textContent = '';
-            id('btn-rematch-yes').disabled = false;
-            id('btn-rematch-yes').style.display = '';
-            id('btn-rematch-yes').textContent = '🔄 قبول إعادة المباراة';
-            id('modal-title').textContent = 'انتهت اللعبة!';
-            if (gameMode === 'ai') {
-                updateTurnUI(); updateConnUI();
-                id('c-txt').disabled = true; id('c-send').disabled = true;
-            } else {
-                updateTurnUI(); updateConnUI(true, 'متصل');
-                id('c-txt').disabled = false; id('c-send').disabled = false;
-            }
-            updateRematchBtn();
-        }
-
-        // ========== AI Logic ==========
-        function evaluateLine(r, c, dr, dc, player) {
-            let count = 0, openEnds = 0;
-            let tr = r + dr, tc = c + dc;
-            while (tr >= 0 && tr < gridSize && tc >= 0 && tc < gridSize && board[tr][tc] === player && !used[tr][tc]) {
-                count++; tr += dr; tc += dc;
-            }
-            if (tr >= 0 && tr < gridSize && tc >= 0 && tc < gridSize && board[tr][tc] === null && !used[tr][tc]) openEnds++;
-            tr = r - dr; tc = c - dc;
-            while (tr >= 0 && tr < gridSize && tc >= 0 && tc < gridSize && board[tr][tc] === player && !used[tr][tc]) {
-                count++; tr -= dr; tc -= dc;
-            }
-            if (tr >= 0 && tr < gridSize && tc >= 0 && tc < gridSize && board[tr][tc] === null && !used[tr][tc]) openEnds++;
-            return {count, openEnds};
-        }
-
-        function scoreCell(r, c) {
-            let score = 0;
-            for (const [dr, dc] of DIRS) {
-                const ai = evaluateLine(r, c, dr, dc, 'O');
-                const hu = evaluateLine(r, c, dr, dc, 'X');
-                if (ai.count >= 4) score += 100000;
-                else if (ai.count === 3 && ai.openEnds >= 2) score += 10000;
-                else if (ai.count === 3 && ai.openEnds >= 1) score += 1000;
-                else if (ai.count === 2 && ai.openEnds >= 2) score += 500;
-                else if (ai.count === 2 && ai.openEnds >= 1) score += 100;
-                else if (ai.count === 1 && ai.openEnds >= 2) score += 10;
-
-                if (hu.count >= 4) score += 50000;
-                else if (hu.count === 3 && hu.openEnds >= 2) score += 5000;
-                else if (hu.count === 3 && hu.openEnds >= 1) score += 500;
-                else if (hu.count === 2 && hu.openEnds >= 2) score += 200;
-                else if (hu.count === 2 && hu.openEnds >= 1) score += 50;
-                else if (hu.count === 1 && hu.openEnds >= 2) score += 5;
-            }
-            const center = Math.floor(gridSize / 2);
-            score += (gridSize - Math.abs(r - center) - Math.abs(c - center)) * 0.5;
-            return score;
-        }
-
-        function aiMove() {
-            if (gameOver || gameMode !== 'ai' || curPlayer !== 'O') return;
-            let bestScore = -1, bestMoves = [];
-            for (let r = 0; r < gridSize; r++) {
-                for (let c = 0; c < gridSize; c++) {
-                    if (board[r][c] !== null || used[r][c]) continue;
-                    const s = scoreCell(r, c);
-                    if (s > bestScore) { bestScore = s; bestMoves = [{r,c}]; }
-                    else if (s === bestScore) bestMoves.push({r,c});
-                }
-            }
-            if (bestMoves.length === 0) return;
-            const move = bestMoves[Math.floor(Math.random() * bestMoves.length)];
-            addMsg('sys', `🤖 ${opponentName||'الكمبيوتر'} يضع في (${move.r+1}, ${move.c+1})`);
-            doMove(move.r, move.c, 'O');
-            if (!gameOver && gameMode === 'ai' && curPlayer === 'O') setTimeout(aiMove, 400);
-        }
-
-        function startAiGame() {
-            mySym = 'X'; opponentName = 'الكمبيوتر';
-            id('lobby').classList.add('hidden');
-            gameMode = 'ai';
-            id('pn-x').textContent = myName;
-            id('pn-o').textContent = opponentName;
-            id('pn-score-x').textContent = myName;
-            id('pn-score-o').textContent = opponentName;
-            id('fn-x-label').textContent = myName;
-            id('fn-o-label').textContent = opponentName;
-            updateMySymUI();
-            updateTurnUI(); updateScoreUI(); updateConnUI();
-            id('used-count').textContent = '0';
-            id('c-txt').disabled = true; id('c-send').disabled = true;
-            addMsg('sys', `🎯 أنت (${myName}) ضد ${opponentName}. ابدأ اللعب!`);
-            id('invite-banner').classList.add('show');
-            setTimeout(() => id('invite-banner').classList.remove('show'), 3000);
-        }
-
-        function sendChat() {
-            const txt = id('c-txt').value.trim();
-            if (!txt || !conn || !conn.open) return;
-            addMsg('me', txt);
-            id('c-txt').value = '';
-            conn.send({type:'chat', msg:txt});
-        }
-        function addMsg(type, text) {
-            const m = id('chat-msgs');
-            m.innerHTML += `<div class="msg ${type === 'me' ? 'msg me' : type === 'sys' ? 'msg sys' : 'msg other'}">${escHtml(text)}</div>`;
-            m.scrollTop = m.scrollHeight;
-        }
-        function escHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-
-        id('c-send').onclick = sendChat;
-        id('c-txt').onkeypress = e => { if (e.key === 'Enter') sendChat(); };
-
-        id('zoom-in').onclick = () => { zoom = Math.min(zoom + 0.2, 2.5); boardEl.style.transform = `scale(${zoom})`; };
-        id('zoom-out').onclick = () => { zoom = Math.max(zoom - 0.2, 0.3); boardEl.style.transform = `scale(${zoom})`; };
-
-        function updateRematchBtn() {
-            const btn = id('btn-rematch');
-            btn.classList.remove('rematch-waiting','rematch-pending');
-            if (gameMode === 'ai') {
-                btn.textContent = '🔄 إعادة اللعب';
-                btn.classList.add('rematch-pending');
-                btn.style.animation = 'none';
-                return;
-            }
-            if (opponentRematchRequested) {
-                btn.textContent = '🔔 موافقة على طلب الإعادة';
-                btn.classList.add('rematch-pending');
-            } else if (rematchRequested) {
-                btn.textContent = '⏳ في انتظار الموافقة...';
-                btn.classList.add('rematch-waiting');
-            } else {
-                btn.textContent = 'طلب إعادة المباراة';
-            }
-        }
-
-        id('btn-rematch').onclick = () => {
-            if (gameMode === 'ai') {
-                doResetGame(); startAiGame();
-                renderBoard();
-                if (Math.random() < 0.5) setTimeout(aiMove, 600);
-                return;
-            }
-            if (!conn || !conn.open) return;
-            if (opponentRematchRequested) {
-                id('fin-x').textContent = scores.X;
-                id('fin-o').textContent = scores.O;
-                id('win-txt').innerHTML = `🔄 <span style="color:#f39c12;">${opponentName||'الخصم'} يطلب إعادة المباراة!</span>`;
-                id('rematch-status').textContent = '👈 اضغط على "قبول إعادة المباراة" للموافقة';
-                id('btn-rematch-yes').disabled = false;
-                id('modal').style.display = 'flex';
-                return;
-            }
-            if (rematchRequested) { addMsg('sys','⏳ لقد أرسلت طلب إعادة بالفعل'); return; }
-            requestRematch(); addMsg('sys','🔄 طلبت إعادة المباراة...');
-            updateRematchBtn();
-        };
-        id('btn-rematch-yes').onclick = () => { acceptRematch(); updateRematchBtn(); };
-        id('btn-close-modal').onclick = () => { id('modal').style.display = 'none'; };
-        id('chat-toggle').onclick = () => id('chat').classList.toggle('open');
-
-        // Surrender button
-        id('btn-surrender').onclick = () => {
-            if (gameOver) return;
-            if (gameMode === 'mp') {
-                if (!mpState.matchActive) return;
-                if (mpState.myId !== mpState.matchP1Id && mpState.myId !== mpState.matchP2Id) return;
-            }
-            if (!confirm('هل أنت متأكد من الانسحاب؟')) return;
-            const p = (gameMode === 'mp' ? (mpState.myId === mpState.matchP1Id ? 'X' : 'O') : mySym) || 'X';
-            doSurrender(p);
-            if (gameMode === 'mp') {
-                if (isMpHost) {
-                    const winner = p === 'X' ? 'O' : 'X';
-                    mpBroadcast({type:'mp_match_move', r:-1, c:-1, p:winner, pts:0, scores, cur:curPlayer, used, surrender:true});
-                    mpEndMatch(scores, winner === 'X' ? 'X' : 'O');
-                } else {
-                    try { mpState.myConn.send({type:'mp_surrender', p}); } catch(e) {}
-                }
-            } else if (gameMode !== 'ai') {
-                if (conn && conn.open) conn.send({type:'surrender', p, scores:{...scores}});
-            }
-        };
-
-        // ========== Connection & Name Setup ==========
-        function showNamePhase() {
-            id('phase-choose').classList.add('hidden');
-            id('phase-host').classList.add('hidden');
-            id('phase-names').classList.remove('hidden');
-            id('my-name-input').value = '';
-            id('my-name-input').focus();
-            id('opponent-ready').innerHTML = '';
-            id('start-game-area').classList.add('hidden');
-            nameConfirmed = false;
-            opponentNameConfirmed = false;
-            id('name-size-txt').textContent = gridSize;
-            id('name-size-txt2').textContent = gridSize;
-            if (isHost) {
-                id('name-field-label').textContent = '👤 اسمك (أنت X):';
-                id('my-name-input').placeholder = 'أدخل اسم اللاعب X';
-            } else {
-                id('name-field-label').textContent = '👤 اسمك (أنت O):';
-                id('my-name-input').placeholder = 'أدخل اسم اللاعب O';
-            }
-        }
-
-        id('btn-confirm-name').onclick = () => {
-            const name = id('my-name-input').value.trim();
-            if (!name) { alert('يرجى إدخال اسمك'); return; }
-            myName = name;
-            nameConfirmed = true;
-            id('btn-confirm-name').disabled = true;
-            id('btn-confirm-name').textContent = '✅ تم التأكيد';
-            id('my-name-input').disabled = true;
-            conn.send({type:'name_confirm', name:myName, sym:mySym});
-            id('opponent-ready').innerHTML = `<span class="ready-badge ok">✅ ${myName}: تم التأكيد</span>`;
-            checkBothReady();
-        };
-
-        function checkBothReady() {
-            if (nameConfirmed && opponentNameConfirmed) {
-                id('start-game-area').classList.remove('hidden');
-                id('both-names-display').textContent = `🆚 ${mySym === 'X' ? myName : opponentName} X VS ${mySym === 'O' ? myName : opponentName} O`;
-                updateNamesUI();
-                updateMySymUI();
-            }
-        }
-
-        id('btn-start-game').onclick = () => {
-            id('lobby').classList.add('hidden');
-            updateConnUI(true, 'متصل');
-            addMsg('sys', isHost ? `🎯 أنت المضيف (${getPlayerName('X')}). ابدأ اللعب!` : `🎯 تم الاتصال! أنت (${getPlayerName('O')})`);
-            updateNamesUI();
-            updateMySymUI();
-            updateTurnUI();
-            id('invite-banner').classList.add('show');
-            setTimeout(() => id('invite-banner').classList.remove('show'), 3000);
-            conn.send({type:'start_game'});
-            if (!isHost) {
-                gameOver = false;
-                id('c-txt').disabled = false;
-                id('c-send').disabled = false;
-                updateConnUI(true, 'متصل');
-            }
-        };
-
-        function startGame() {
-            id('lobby').classList.add('hidden');
-            updateConnUI(true, 'متصل');
-            addMsg('sys', isHost ? `🎯 أنت المضيف (${getPlayerName('X')}). ابدأ اللعب!` : `🎯 تم الاتصال! أنت (${getPlayerName('O')})`);
-            updateNamesUI();
-            updateMySymUI();
-            updateTurnUI();
-            id('invite-banner').classList.add('show');
-            setTimeout(() => id('invite-banner').classList.remove('show'), 3000);
-            id('c-txt').disabled = false;
-            id('c-send').disabled = false;
-        }
-
-        function handleData(data) {
-            switch (data.type) {
-                case 'game_config':
-                    if (data.gridSize && !isHost) {
-                        gridSize = data.gridSize;
-                        id('lobby-size-label').textContent = gridSize;
-                        id('lobby-size-label2').textContent = gridSize;
-                        id('name-size-txt').textContent = gridSize;
-                        id('name-size-txt2').textContent = gridSize;
-                        initGameState();
-                        renderBoard();
-                    }
-                    break;
-                case 'name_confirm':
-                    opponentName = data.name;
-                    opponentNameConfirmed = true;
-                    const oppSym = data.sym === 'X' ? 'O' : 'X';
-                    id('opponent-ready').innerHTML += `<span class="ready-badge ok">✅ ${data.name} (${data.sym}): تم التأكيد</span>`;
-                    checkBothReady();
-                    break;
-                case 'start_game':
-                    startGame();
-                    break;
-                case 'move':
-                    if (board[data.r][data.c] !== null || used[data.r][data.c]) break;
-                    board[data.r][data.c] = data.p; moves++;
-                    scores = {...data.scores}; curPlayer = data.cur;
-                    used = data.used || used;
-                    if (data.pts > 0) {
-                        const wins = findAllWins(data.r, data.c, data.p);
-                        for (const w of wins) { highlightWin(w, data.p); drawWinLine(w, data.p); }
-                    }
-                    syncBoardUI(); updateScoreUI(); updateTurnUI();
-                    if (used.flat().every(v => v) || moves >= gridSize*gridSize) {
-                        gameOver = true; showEnd(); updateTurnUI();
-                    }
-                    break;
-                case 'chat':
-                    addMsg('other', data.msg);
-                    break;
-                case 'game_end':
-                    scores = data.scores; if (data.used) used = data.used;
-                    gameOver = true; updateScoreUI(); syncBoardUI(); showEnd(); updateTurnUI();
-                    updateConnUI(true, 'متصل');
-                    break;
-                case 'surrender':
-                    scores = data.scores || scores;
-                    gameOver = true; updateScoreUI(); syncBoardUI(); showEnd(); updateTurnUI();
-                    addMsg('sys', `🏳️ ${getPlayerName(data.p === 'X' ? 'O' : 'X') || 'الخصم'} انسحب!`);
-                    break;
-                case 'rematch_req':
-                    opponentRematchRequested = true;
-                    addMsg('sys', '🔄 الخصم يطلب إعادة المباراة');
-                    id('fin-x').textContent = scores.X;
-                    id('fin-o').textContent = scores.O;
-                    id('win-txt').innerHTML = `🔄 <span style="color:#f39c12;">${opponentName||'الخصم'} يطلب إعادة المباراة!</span>`;
-                    id('rematch-status').textContent = '👈 اضغط على "قبول إعادة المباراة" للموافقة';
-                    id('btn-rematch-yes').disabled = false;
-                    id('modal').style.display = 'flex';
-                    updateRematchBtn();
-                    break;
-                case 'rematch_accept':
-                    addMsg('sys', '✅ تمت الموافقة على إعادة المباراة'); doResetGame();
-                    updateRematchBtn();
-                    break;
-                case 'cancel':
-                    handleDisconnect();
-                    break;
-                case 'reset':
-                    doResetGame();
-                    break;
-            }
-        }
-
-        function showDisconnectModal(msg) {
-            id('fin-x').textContent = scores.X;
-            id('fin-o').textContent = scores.O;
-            id('win-txt').innerHTML = `⚠️ <span style="color:#e74c3c;">${msg}</span>`;
-            id('rematch-status').textContent = '';
-            id('btn-rematch-yes').style.display = 'none';
-            id('modal-title').textContent = '🔌 انقطع الاتصال';
-            id('modal').style.display = 'flex';
-        }
-
-        function handleDisconnect() {
-            const opp = opponentName || 'الخصم';
-            updateConnUI(false, 'انقطع');
-            addMsg('sys', `⚠️ انقطع اتصال ${opp}`);
-            id('turn-indicator').textContent = '🔴 انقطع الاتصال';
-            id('turn-indicator').className = 'ended';
-            if (gameOver) return;
-            gameOver = true;
-            const phase = !nameConfirmed || !opponentNameConfirmed ? 'lobby' : 'game';
-            if (phase === 'game') {
-                showDisconnectModal(`${opp} غادر المباراة`);
-            } else {
-                id('lobby-box').innerHTML = `
-                    <h2>🔌 انقطع الاتصال</h2>
-                    <p style="color:#e74c3c;margin:15px 0;">${opp} غادر الغرفة</p>
-                    <button class="btn btn-host" onclick="location.reload()">🔄 العودة للصفحة الرئيسية</button>
-                `;
-            }
-        }
-
-        function setupConnection() {
-            id('lobby').classList.remove('hidden');
-            id('phase-choose').classList.add('hidden');
-            id('phase-host').classList.add('hidden');
-            showNamePhase();
-            if (conn) {
-                conn.on('data', handleData);
-                conn.on('close', handleDisconnect);
-                conn.on('error', handleDisconnect);
-            }
-        }
-
-        // ========== Lobby Actions ==========
-        function genCode() { return String(Math.floor(100 + Math.random() * 900)); }
-
-        // ========== Grid Size Selection ==========
-        document.querySelectorAll('.size-btn').forEach(btn => {
-            btn.onclick = () => {
-                if (!id('phase-host').classList.contains('hidden')) return;
-                document.querySelectorAll('.size-btn').forEach(b => {
-                    b.style.background = '#e0e0e0'; b.style.color = '#333';
-                    b.classList.remove('selected-size');
-                });
-                btn.style.background = '#1a2332'; btn.style.color = '#fff';
-                btn.classList.add('selected-size');
-                gridSize = parseInt(btn.dataset.size);
-                id('lobby-size-label').textContent = gridSize;
-                id('lobby-size-label2').textContent = gridSize;
-                id('mp-lobby-size').textContent = gridSize;
-                id('mp-lobby-size2').textContent = gridSize;
-                initGameState();
-                renderBoard();
-                // If host in multiplayer, broadcast size change
-                if (isMpHost && roomCode) {
-                    mpBroadcast({type:'mp_grid_size', gridSize});
-                }
-            };
+            handleRematchRequest();
         });
 
-        function getPeerOpts() {
-            const custom = id('peer-server-input').value.trim();
-            if (custom) {
-                peerServer = custom;
-                if (custom.includes(':')) {
-                    const sp = custom.split(':');
-                    return {host: sp[0], port: parseInt(sp[1]) || 9000, secure: false};
+        function handleRematchRequest() {
+            if (mpState.isMultiplayer) {
+                if (mpState.isHost) {
+                    hostStartMatch();
+                    id('modal').style.display = 'none';
                 }
-                return {host: custom, port: 443, secure: true};
+            } else {
+                startNewMatch();
             }
-            return {host: '0.peerjs.com', port: 443, secure: true};
         }
-        function tryCreatePeer(code, retry) {
-            if (retry > 10) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة'; id('status-msg').className = 'status-error'; return; }
-            id('status-msg').textContent = retry > 0 ? `🔄 المحاولة ${retry}/10...` : '🔄 جاري الإنشاء...';
-            id('status-msg').className = 'status-wait';
-            const opts = getPeerOpts();
-            const p = new Peer(code, opts);
-            peer = p;
-            p.on('open', id2 => {
-                if (id2 === code) {
-                    roomCode = code; id('room-id').textContent = code;
-                    id('phase-choose').classList.add('hidden');
-                    id('phase-host').classList.remove('hidden');
-                    id('host-size-txt').textContent = `${gridSize}×${gridSize}`;
-                    id('status-msg').textContent = '';
-                    updateConnUI(true, 'متصل');
-                }
-            });
-            p.on('error', err => {
-                if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
-                    p.destroy(); const nc = genCode();
-                    setTimeout(() => tryCreatePeer(nc, retry + 1), 300);
-                } else {
-                    id('status-msg').textContent = `❌ ${err.type}`;
-                    id('status-msg').className = 'status-error';
-                }
-            });
-            p.on('connection', c => {
-                conn = c; isHost = true; mySym = 'X';
-                conn.on('open', () => {
-                    conn.send({type:'game_config', gridSize, hostName:''});
-                    setupConnection();
-                });
-            });
-        }
-        id('btn-adv').onclick = () => {
-            const el = id('adv-settings');
-            el.classList.toggle('hidden');
-            id('btn-adv').textContent = el.classList.contains('hidden') ? '⚙️ إعدادات متقدمة' : '⚙️ إخفاء الإعدادات';
-        };
-        id('btn-test-peer').onclick = () => {
-            const result = id('test-peer-result');
-            result.textContent = '🔄 جاري الاختبار...'; result.style.color = '#888';
-            const p = new Peer('test' + Math.random().toString(36).substr(2,6), getPeerOpts());
-            const t = setTimeout(() => { p.destroy(); result.textContent = '❌ لا يستجيب'; result.style.color = '#e74c3c'; }, 8000);
-            p.on('open', () => { clearTimeout(t); p.destroy(); result.textContent = `✅ ${peerServer} يعمل`; result.style.color = '#27ae60'; });
-            p.on('error', err => { clearTimeout(t); p.destroy(); if (err.type === 'unavailable-id') { result.textContent = `✅ ${peerServer} يعمل`; result.style.color = '#27ae60'; } else { result.textContent = `❌ ${err.type}`; result.style.color = '#e74c3c'; } });
-        };
-        id('btn-create').onclick = () => { tryCreatePeer(genCode(), 0); };
-        id('btn-cancel').onclick = () => {
-            try { if (conn && conn.open) conn.send({type:'cancel'}); } catch(e) {}
-            if (peer) { setTimeout(() => { peer.destroy(); peer = null; }, 100); }
-            conn = null;
-            id('phase-host').classList.add('hidden');
-            id('phase-choose').classList.remove('hidden');
-            id('phase-names').classList.add('hidden');
-            id('status-msg').textContent = '';
-        };
-        id('btn-test-peer').onclick = () => {
-            const result = id('test-peer-result');
-            result.textContent = '🔄 جاري الاختبار...'; result.style.color = '#888';
-            const opts = getPeerOpts();
-            const p = new Peer('test' + Math.random().toString(36).substr(2,6), opts); 
-            const t = setTimeout(() => {
-                p.destroy();
-                result.textContent = '❌ الخادم لا يستجيب'; result.style.color = '#e74c3c';
-            }, 8000);
-            p.on('open', () => {
-                clearTimeout(t); p.destroy();
-                result.textContent = `✅ ${peerServer} يعمل`; result.style.color = '#27ae60';
-            });
-            p.on('error', err => {
-                clearTimeout(t); p.destroy();
-                if (err.type === 'unavailable-id') {
-                    result.textContent = `✅ ${peerServer} يعمل`; result.style.color = '#27ae60';
-                } else {
-                    result.textContent = `❌ ${err.type}`; result.style.color = '#e74c3c';
-                }
-            });
-        };
 
-        id('btn-create').onclick = () => { tryCreatePeer(genCode(), 0); };
-
-        id('btn-cancel').onclick = () => {
-            try { if (conn && conn.open) conn.send({type:'cancel'}); } catch(e) {}
-            if (peer) { setTimeout(() => { peer.destroy(); peer = null; }, 100); }
-            conn = null;
-            id('phase-host').classList.add('hidden');
-            id('phase-choose').classList.remove('hidden');
-            id('phase-names').classList.add('hidden');
-            id('status-msg').textContent = '';
-        };
-
-        // ========== AI Mode ==========
-        id('btn-ai').onclick = () => {
-            gameMode = 'ai'; isHost = false; mySym = 'X';
-            id('phase-choose').classList.add('hidden');
-            id('phase-ai-name').classList.remove('hidden');
-            id('ai-size-txt').textContent = gridSize;
-            id('ai-size-txt2').textContent = gridSize;
-            id('ai-name-input').value = '';
-            id('ai-name-input').focus();
-        };
-
-        id('btn-ai-cancel').onclick = () => {
-            id('phase-ai-name').classList.add('hidden');
-            id('phase-choose').classList.remove('hidden');
-        };
-
-        id('btn-start-ai').onclick = () => {
-            const name = id('ai-name-input').value.trim();
-            if (!name) { alert('يرجى إدخال اسمك'); return; }
-            myName = name;
-            gameMode = 'ai';
-            startAiGame();
+        function startNewMatch() {
             renderBoard();
-            if (Math.random() < 0.5) setTimeout(aiMove, 600);
-        };
-
-        let joinRetries = 0;
-        function tryJoin(code) {
-            id('status-msg').textContent = joinRetries > 0 ? `🔄 المحاولة ${joinRetries}/3...` : '🔄 جاري الاتصال...';
-            id('status-msg').className = 'status-wait';
-            const opts = getPeerOpts();
-            const p = new Peer(opts); 
-            peer = p;
-            const peerTimeout = setTimeout(() => {
-                if (!peer || !peer.open) {
-                    id('status-msg').textContent = '⏳ الخادم لا يستجيب... تحقق من الاتصال';
-                    id('status-msg').className = 'status-wait';
-                }
-            }, 6000);
-            p.on('open', () => {
-                clearTimeout(peerTimeout);
-                const c = p.connect(code, {timeout:15000});
-                conn = c;
-                const timeout = setTimeout(() => {
-                    if (!c.open) {
-                        if (joinRetries < 3) {
-                            joinRetries++;
-                            p.destroy(); peer = null;
-                            tryJoin(code);
-                        } else {
-                            id('status-msg').textContent = '❌ انتهت المهلة بعد 3 محاولات';
-                            id('status-msg').className = 'status-error';
-                            joinRetries = 0;
-                        }
-                    }
-                }, 15000);
-                c.on('open', () => {
-                    clearTimeout(timeout);
-                    joinRetries = 0;
-                    isHost = false; mySym = 'O';
-                    setupConnection();
-                });
-                c.on('error', err => {
-                    clearTimeout(timeout);
-                    const msg = err.message || err.type || 'الغرفة غير موجودة';
-                    id('status-msg').textContent = `❌ ${msg}`;
-                    id('status-msg').className = 'status-error';
-                });
-            });
-            p.on('error', err => {
-                clearTimeout(peerTimeout);
-                id('status-msg').textContent = `❌ ${err.type || 'فشل الاتصال'}`;
-                id('status-msg').className = 'status-error';
-            });
-        }
-        id('btn-join').onclick = () => {
-            const code = id('join-input').value.trim();
-            if (!/^\d{3}$/.test(code)) { alert('أدخل 3 أرقام صحيحة'); return; }
-            joinRetries = 0;
-            tryJoin(code);
-        };
-
-        // ========== Multiplayer State ==========
-        let mpState = {players:[], mode:'league', myId:null, isHost:false, phase:'lobby', matches:[], currentMatchIdx:-1, standings:[], groups:[], matchActive:false, matchP1Id:null, matchP2Id:null, compOver:false, saveCode:''};
-        let mpConns = {}; let mpConnIdCounter = 0;
-        let mpPeer = null; let isMpHost = false;
-
-        // ========== Personal Code Helpers ==========
-        function mpGeneratePersonalCode() {
-            const existing = (mpState.players || []).map(p => p.personalCode).filter(Boolean);
-            let code;
-            do { code = String(Math.floor(Math.random() * 1000)).padStart(3, '0'); }
-            while (existing.includes(code));
-            return code;
-        }
-        function mpFindPlayerByCode(code) {
-            return (mpState.players || []).find(p => p.personalCode === code);
+            curPlayer = 'X';
+            gameOver = false;
+            updateTurnUI();
+            id('btn-rematch').disabled = true;
         }
 
-        // ========== Save / Load Competition ==========
-        let mpCloudUrl = '';
-        async function mpSaveToCloud(data) {
-            try {
-                if (mpCloudUrl) {
-                    const r = await fetch(mpCloudUrl, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-                    if (!r.ok) throw new Error('HTTP '+r.status);
-                } else {
-                    const r = await fetch('https://jsonblob.com/api/jsonBlob', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-                    if (!r.ok) throw new Error('HTTP '+r.status);
-                    const loc = r.headers.get('Location');
-                    if (loc) { mpCloudUrl = loc; mpState.cloudUrl = loc; }
-                }
-            } catch(e) { console.warn('Cloud save failed:', e); }
-        }
-        async function mpLoadFromCloud(url) {
-            try {
-                const r = await fetch(url);
-                if (!r.ok) throw new Error('HTTP '+r.status);
-                return await r.json();
-            } catch(e) { console.warn('Cloud load failed:', e); return null; }
-        }
-        function mpSaveState() {
-            if (!roomCode && !mpState.saveCode) return;
-            const key = 'quintet_save_' + (mpState.saveCode || roomCode);
-            const data = {
-                mode: mpState.mode, players: mpState.players,
-                matches: mpState.matches, standings: mpState.standings,
-                groups: mpState.groups, bracket: mpState.bracket,
-                currentMatchIdx: mpState.currentMatchIdx, compOver: mpState.compOver,
-                gridSize, saveCode: mpState.saveCode || roomCode, cloudUrl: mpState.cloudUrl || '',
-                timestamp: Date.now()
-            };
-            try { localStorage.setItem(key, JSON.stringify(data)); } catch(e) {}
-            mpBroadcast({type:'mp_state_sync', state: data});
-            mpSaveToCloud(data);
-        }
-        // Restore cloud URL from saved state
-        function mpRestoreCloudUrl(saveData) {
-            if (saveData && saveData.cloudUrl) { mpCloudUrl = saveData.cloudUrl; mpState.cloudUrl = saveData.cloudUrl; }
-        }
-        function mpLoadSaves() {
-            const saves = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (k && k.startsWith('quintet_save_')) {
-                    try { saves.push(JSON.parse(localStorage.getItem(k))); } catch(e) {}
-                }
-            }
-            return saves.sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
-        }
-        function mpDeleteSave(code) {
-            try { localStorage.removeItem('quintet_save_' + code); } catch(e) {}
-        }
-
-        function mpBroadcast(data, exclude) {
-            for (const [pid, p] of Object.entries(mpConns)) {
-                if (pid === exclude) continue;
-                try { if (p.conn && p.conn.open) p.conn.send(data); } catch(e) {}
-            }
-        }
-        function mpSendTo(pid, data) {
-            try { if (mpConns[pid] && mpConns[pid].conn && mpConns[pid].conn.open) mpConns[pid].conn.send(data); } catch(e) {}
-        }
-
-        // ========== Room Creation ==========
-        function mpGenCode() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let c = '';
-            for (let i = 0; i < 6; i++) c += chars[Math.floor(Math.random() * chars.length)];
-            return c;
-        }
-        let mpCreateRetries = 0;
-        function mpTryCreate(code) {
-            if (mpCreateRetries > 10) {
-                id('mp-status-msg').textContent = '❌ فشل إنشاء الغرفة بعد 10 محاولات. جرب خادماً آخر في الإعدادات'; id('mp-status-msg').className = 'status-error'; return;
-            }
-            id('mp-status-msg').textContent = '🔄 جاري إنشاء الغرفة...'; id('mp-status-msg').className = 'status-wait';
-            const opts = getPeerOpts();
-            const p = new Peer(code, opts); 
-            mpPeer = p;
-            p.on('open', id2 => {
-                if (id2 === code) {
-                    roomCode = code;
-                    id('phase-mp-choose').classList.add('hidden');
-                    id('phase-mp-host').classList.add('hidden');
-                    id('phase-mp-lobby').classList.remove('hidden');
-                    id('mp-lobby-code').textContent = '📋 الكود: ' + code;
-                    id('mp-status-msg').textContent = '';
-                    isMpHost = true; mpState.isHost = true;
-                    gameMode = 'mp';
-                    mpState.players = [{id:'host', name:'', ready:false, host:true}];
-                    mpState.myId = 'host';
-                    updateConnUI(true, 'جماعي');
-                    mpRenderPlayerList();
-                    // Apply resume state if pending
-                    if (mpState._pendingResume) {
-                        const rs = mpState._pendingResume;
-                        mpState.mode = rs.mode || 'league';
-                        mpState.matches = rs.matches || [];
-                        mpState.standings = rs.standings || [];
-                        mpState.groups = rs.groups || [];
-                        mpState.bracket = rs.bracket || null;
-                        mpState.currentMatchIdx = rs.currentMatchIdx != null ? rs.currentMatchIdx : -1;
-                        mpState.saveCode = rs.saveCode || code;
-                        mpState.cloudUrl = rs.cloudUrl || '';
-                        if (mpState.cloudUrl) mpCloudUrl = mpState.cloudUrl;
-                        gridSize = rs.gridSize || gridSize;
-                        // Restore player list with saved names, IDs, and personal codes
-                        if (rs.players && rs.players.length > 0) {
-                            mpState.players = rs.players.map(p => ({...p, ready:false}));
-                        }
-                        // Auto-set host name and ready from saved data
-                        const hostPlayer = mpState.players.find(p => p.host);
-                        if (hostPlayer && hostPlayer.name) {
-                            hostPlayer.ready = true;
-                        }
-                        mpState._pendingResume = null;
-                        mpRenderPlayerList();
-                        mpSaveState();
-                        mpShowNotification('📂 تم تحميل المسابقة المحفوظة', 'info');
-                    }
-                }
-            });
-            p.on('error', err => {
-                if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
-                    p.destroy(); setTimeout(() => mpTryCreate(mpGenCode(), mpCreateRetries + 1), 300);
-                    mpCreateRetries++;
-                } else {
-                    id('mp-status-msg').textContent = `❌ ${err.type}`; id('mp-status-msg').className = 'status-error';
-                }
-            });
-            p.on('connection', c => {
-                const pid = 'p' + (mpConnIdCounter++);
-                mpConns[pid] = {conn:c, name:'', ready:false};
-                c.on('data', d => mpHandleHostData(pid, d));
-                c.on('close', () => mpHandlePlayerLeave(pid, 'غادر'));
-                c.on('error', () => mpHandlePlayerLeave(pid, 'خطأ'));
-                c.on('open', () => {
-                    const hasComp = mpState.matches.length > 0;
-                    mpSendTo(pid, {type:'mp_welcome', playerId:pid, players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode})), gridSize,
-                        competitionState: hasComp ? {mode:mpState.mode, matches:mpState.matches, standings:mpState.standings, groups:mpState.groups, bracket:mpState.bracket, currentMatchIdx:mpState.currentMatchIdx, compOver:mpState.compOver} : null});
-                    if (hasComp) mpSendTo(pid, {type:'mp_request_code'});
-                    mpState.players.push({id:pid, name:'', ready:false, host:false});
-                    mpBroadcast({type:'mp_player_list', players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode}))});
-                    mpRenderPlayerList();
-                    mpShowNotification('🟢 انضم لاعب جديد إلى الغرفة', 'info');
-                });
-            });
-        }
-
-        // ========== Join Room ==========
-        let mpJoinPeer = null;
-        function mpTryJoin(code) {
-            id('phase-mp-choose').classList.add('hidden');
-            id('phase-mp-join').classList.remove('hidden');
-            id('mp-join-status').textContent = 'جاري الاتصال...';
-            const opts = getPeerOpts();
-            const p = new Peer(opts); 
-            mpJoinPeer = p;
-            p.on('open', () => {
-                const c = p.connect(code, {timeout:30000});
-                const timeout = setTimeout(() => {
-                    if (!c.open) { id('mp-join-status').textContent = '❌ انتهت المهلة'; id('mp-join-status').className = 'status-error'; }
-                }, 30000);
-                c.on('open', () => {
-                    clearTimeout(timeout);
-                    id('phase-mp-join').classList.add('hidden');
-                    isMpHost = false; mpState.isHost = false;
-                    mpPeer = p; mpState.myConn = c; conn = c;
-                    gameMode = 'mp';
-                });
-                c.on('data', d => mpHandleClientData(d));
-                c.on('close', () => { mpShowNotification('🔌 انقطع الاتصال بالمضيف', 'info'); mpGoToLobby(); });
-                c.on('error', () => {
-                    id('mp-join-status').textContent = '❌ فشل الاتصال - جرب خادماً آخر في الإعدادات المتقدمة'; id('mp-join-status').className = 'status-error';
-                });
-            });
-            p.on('error', () => {
-                id('mp-join-status').textContent = '❌ فشل في الاتصال بالخادم - جرب خادماً آخر في الإعدادات المتقدمة'; id('mp-join-status').className = 'status-error';
-            });
-        }
-
-        function mpGoToLobby() {
-            id('phase-mp-host').classList.add('hidden');
-            id('phase-mp-join').classList.add('hidden');
-            id('phase-mp-lobby').classList.add('hidden');
-            id('phase-mp-competition').classList.add('hidden');
-            id('phase-mp-choose').classList.remove('hidden');
-            id('mp-status-msg').textContent = '';
-            if (mpPeer) { try {mpPeer.destroy();}catch(e){} mpPeer = null; }
-            mpConns = {}; mpState = {players:[], mode:'league', myId:null, isHost:false, phase:'lobby', matches:[], currentMatchIdx:-1, standings:[], groups:[], matchActive:false, matchP1Id:null, matchP2Id:null, compOver:false};
-            isMpHost = false; mpConnIdCounter = 0;
-        }
-
-        // ========== Host Data Handler ==========
-        function mpHandleHostData(pid, data) {
-            switch(data.type) {
-                case 'mp_set_name':
-                    if (mpConns[pid]) mpConns[pid].name = data.name;
-                    const pl = mpState.players.find(p => p.id === pid);
-                    if (pl) {
-                        pl.name = data.name;
-                        if (!pl.personalCode) {
-                            pl.personalCode = mpGeneratePersonalCode();
-                            mpSendTo(pid, {type:'mp_personal_code', code: pl.personalCode});
-                        }
-                    }
-                    mpBroadcast({type:'mp_player_list', players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode}))});
-                    mpRenderPlayerList();
-                    break;
-                case 'mp_ready':
-                    if (mpConns[pid]) mpConns[pid].ready = data.ready;
-                    const pl2 = mpState.players.find(p => p.id === pid);
-                    if (pl2) pl2.ready = data.ready;
-                    mpBroadcast({type:'mp_player_list', players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode}))});
-                    mpRenderPlayerList();
-                    break;
-                case 'mp_move':
-                    if (mpState.matchActive && (pid === mpState.matchP1Id || pid === mpState.matchP2Id)) {
-                        mpBroadcast({type:'mp_match_move', r:data.r, c:data.c, p:data.p, pid:pid, pts:data.pts, scores:data.scores, cur:data.cur, used:data.used}, 'host');
-                        mpSendTo(mpState.matchP1Id === pid ? mpState.matchP2Id : mpState.matchP1Id, {type:'mp_match_move', r:data.r, c:data.c, p:data.p, pid:pid, pts:data.pts, scores:data.scores, cur:data.cur, used:data.used});
-                        mpCheckMatchEnd();
-                    }
-                    break;
-                case 'mp_match_end':
-                    mpEndMatch(data.scores, data.winner);
-                    break;
-                case 'mp_surrender':
-                    if (mpState.matchActive && (pid === mpState.matchP1Id || pid === mpState.matchP2Id)) {
-                        const p = data.p || (pid === mpState.matchP1Id ? 'X' : 'O');
-                        doSurrender(p);
-                        const winner = p === 'X' ? 'O' : 'X';
-                        mpBroadcast({type:'mp_match_move', r:-1, c:-1, p:winner, pts:0, scores, cur:curPlayer, used, surrender:true});
-                        mpEndMatch(scores, winner);
-                    }
-                    break;
-                case 'mp_personal_code':
-                    if (data.code && /^\d{3}$/.test(data.code)) {
-                        const matched = mpState.players.find(p => p.personalCode === data.code && p.id !== 'host' && p.id !== pid);
-                        if (matched && matched.name) {
-                            // Update all match references from old ID to new ID
-                            const oldId = matched.id;
-                            for (const m of mpState.matches) {
-                                if (m.p1Id === oldId) m.p1Id = pid;
-                                if (m.p2Id === oldId) m.p2Id = pid;
-                            }
-                            for (const s of mpState.standings) {
-                                if (s.id === oldId) s.id = pid;
-                            }
-                            if (mpState.matchP1Id === oldId) mpState.matchP1Id = pid;
-                            if (mpState.matchP2Id === oldId) mpState.matchP2Id = pid;
-                            // Remove old player entry, update new entry
-                            mpState.players = mpState.players.filter(p => p.id !== oldId);
-                            const newPl = mpState.players.find(p => p.id === pid);
-                            if (newPl) {
-                                newPl.name = matched.name;
-                                newPl.ready = true;
-                                newPl.personalCode = matched.personalCode;
-                                if (mpConns[pid]) mpConns[pid].name = matched.name;
-                                mpSendTo(pid, {type:'mp_restore_identity', name: matched.name});
-                                mpBroadcast({type:'mp_player_list', players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode}))});
-                                mpRenderPlayerList();
-                                mpShowNotification(`✅ ${matched.name} استعاد حسابه`, 'info');
-                            }
-                        } else {
-                            mpShowNotification(`🔑 الكود ${data.code} لا يتطابق مع أي لاعب محفوظ`, 'info');
-                        }
-                    }
-                    break;
-                case 'mp_match_ready':
-                    mpHandleMatchReady(pid);
-                    break;
-            }
-        }
-
-        // ========== Client Data Handler ==========
-        function mpHandleClientData(data) {
-            switch(data.type) {
-                case 'mp_welcome':
-                    mpState.myId = data.playerId;
-                    mpState.players = data.players || [];
-                    gridSize = data.gridSize || gridSize;
-                    id('lobby-size-label').textContent = gridSize;
-                    id('lobby-size-label2').textContent = gridSize;
-                    id('mp-lobby-size').textContent = gridSize;
-                    id('mp-lobby-size2').textContent = gridSize;
-                    initGameState();
-                    renderBoard();
-                    id('phase-mp-lobby').classList.remove('hidden');
-                    mpRenderPlayerList();
-                    id('mp-host-controls').classList.add('hidden');
-                    // Restore competition state if present
-                    if (data.competitionState) {
-                        const cs = data.competitionState;
-                        mpState.mode = cs.mode || mpState.mode;
-                        mpState.matches = cs.matches || [];
-                        mpState.standings = cs.standings || [];
-                        mpState.groups = cs.groups || [];
-                        mpState.bracket = cs.bracket || null;
-                        mpState.currentMatchIdx = cs.currentMatchIdx != null ? cs.currentMatchIdx : -1;
-                        mpState.compOver = cs.compOver || false;
-                        if (mpState.matches.length > 0) {
-                            id('phase-mp-lobby').classList.add('hidden');
-                            id('phase-mp-competition').classList.remove('hidden');
-                            mpRenderCompetition();
-                        }
-                    }
-                    break;
-                case 'mp_player_list':
-                    mpState.players = data.players || [];
-                    mpRenderPlayerList();
-                    break;
-                case 'mp_personal_code':
-                    mpShowPersonalCode(data.code);
-                    break;
-                case 'mp_competition_start':
-                    mpState.phase = 'competition';
-                    mpState.mode = data.mode;
-                    mpState.matches = data.matches || [];
-                    mpState.standings = data.standings || [];
-                    mpState.groups = data.groups || [];
-                    mpState.bracket = data.bracket || null;
-                    mpState.currentMatchIdx = data.currentMatchIdx || 0;
-                    mpState.compOver = false;
-                    id('phase-mp-lobby').classList.add('hidden');
-                    id('phase-mp-competition').classList.remove('hidden');
-                    mpRenderCompetition();
-                    break;
-                case 'mp_match_ready_wait':
-                    mpState.matchActive = false;
-                    mpState.matchP1Id = data.p1Id;
-                    mpState.matchP2Id = data.p2Id;
-                    id('phase-mp-competition').classList.remove('hidden');
-                    id('mp-match-area').classList.remove('hidden');
-                    mpUpdateMatchUI(data.p1Name, data.p2Name, true);
-                    mpRenderCompetition();
-                    break;
-                case 'mp_match_ready_update':
-                    if (mpState.matches[mpState.currentMatchIdx]) {
-                        mpState.matches[mpState.currentMatchIdx].p1Ready = data.p1Ready;
-                        mpState.matches[mpState.currentMatchIdx].p2Ready = data.p2Ready;
-                    }
-                    mpRenderCompetition();
-                    break;
-                case 'mp_match_move':
-                    if (mpState.matchActive) {
-                        mpApplyMove(data);
-                    }
-                    break;
-                case 'mp_match_begin':
-                    mpState.matchActive = true;
-                    mpState.matchP1Id = data.p1Id;
-                    mpState.matchP2Id = data.p2Id;
-                    initGameState();
-                    renderBoard();
-                    id('phase-mp-competition').classList.remove('hidden');
-                    id('mp-match-area').classList.remove('hidden');
-                    mpUpdateMatchUI(data.p1Name, data.p2Name);
-                    if (mpState.myId === data.p1Id || mpState.myId === data.p2Id) {
-                        gameMode = 'mp';
-                        mySym = mpState.myId === data.p1Id ? 'X' : 'O';
-                        myName = mpState.myId === data.p1Id ? data.p1Name : data.p2Name;
-                        opponentName = mpState.myId === data.p1Id ? data.p2Name : data.p1Name;
-                        updateNamesUI(); updateMySymUI(); updateTurnUI(); updateScoreUI();
-                        if (mpState.myId !== data.p1Id) { curPlayer = 'X'; updateTurnUI(); }
-                    } else {
-                        mySym = '';
-                        updateTurnUI(); updateScoreUI();
-                        id('c-txt').disabled = true; id('c-send').disabled = true;
-                    }
-                    break;
-                case 'mp_match_end':
-                    mpState.matchActive = false;
-                    mpState.matches = data.matches || mpState.matches;
-                    mpState.standings = data.standings || mpState.standings;
-                    mpState.bracket = data.bracket || mpState.bracket;
-                    mpState.compOver = data.compOver || false;
-                    mpRenderCompetition();
-                    if (mpState.compOver) {
-                        mpShowNotification('🏆 انتهت المسابقة!', 'win');
-                        id('mp-match-area').classList.add('hidden');
-                    } else {
-                        const next = mpState.matches.find(m => m.status === 'pending' && m.p1Id && m.p2Id);
-                        if (next) mpState.currentMatchIdx = mpState.matches.indexOf(next);
-                        id('mp-match-notice').textContent = next ? `⏳ المباراة القادمة: ${next.p1Name || '?'} 🆚 ${next.p2Name || '?'}` : '⏳ انتظر...';
-                    }
-                    break;
-                case 'mp_state_sync':
-                    if (data.state) {
-                        const key = 'quintet_save_' + (data.state.saveCode || 'backup');
-                        try { localStorage.setItem(key, JSON.stringify(data.state)); } catch(e) {}
-                    }
-                    break;
-                case 'mp_grid_size':
-                    gridSize = data.gridSize || gridSize;
-                    id('mp-lobby-size').textContent = gridSize;
-                    id('mp-lobby-size2').textContent = gridSize;
-                    break;
-                case 'mp_grid_size':
-                    // Client receives size from host
-                    gridSize = data.gridSize || gridSize;
-                    id('mp-lobby-size').textContent = gridSize;
-                    id('mp-lobby-size2').textContent = gridSize;
-                    id('lobby-size-label').textContent = gridSize;
-                    id('lobby-size-label2').textContent = gridSize;
-                    break;
-                case 'mp_standings_update':
-                    mpState.standings = data.standings || [];
-                    mpRenderCompetition();
-                    break;
-                case 'mp_bracket_update':
-                    mpState.matches = data.matches || mpState.matches;
-                    mpState.standings = data.standings || mpState.standings;
-                    mpState.currentMatchIdx = data.currentMatchIdx != null ? data.currentMatchIdx : 0;
-                    mpRenderCompetition();
-                    break;
-                case 'mp_request_code':
-                    const code = prompt('🔑 أدخل كودك الشخصي (3 أرقام) لاسترجاع حسابك، أو أتركه فارغاً للتسجيل كلاعب جديد:');
-                    if (code && /^\d{3}$/.test(code)) {
-                        try { mpState.myConn.send({type:'mp_personal_code', code}); } catch(e) {}
-                    }
-                    break;
-                case 'mp_restore_identity':
-                    if (data.name) {
-                        const pl = mpState.players.find(p => p.id === mpState.myId);
-                        if (pl) { pl.name = data.name; pl.ready = true; }
-                        mpRenderPlayerList();
-                        mpShowNotification(`✅ مرحباً بعودتك ${data.name}!`, 'info');
-                    }
-                    break;
-            }
-        }
-
-        // ========== Player List UI ==========
-        function mpRenderPlayerList() {
-            const list = id('mp-player-list');
-            const hostList = id('mp-host-player-list');
-            const count = id('mp-lobby-count');
-            let html = '', hostHtml = '';
-            const players = mpState.players || [];
-            count.textContent = `${players.length} لاعب`;
-            for (const p of players) {
-                const cls = p.id === mpState.myId ? 'mp-player-row me' : 'mp-player-row';
-                const hostBadge = p.host ? '<span class="host-badge">👑 المضيف</span>' : '';
-                const readyBadge = p.ready ? '<span class="ready-badge ready-yes">✅ جاهز</span>' : '<span class="ready-badge ready-no">⏳</span>';
-                const name = p.name || (p.host ? 'المضيف' : `لاعب ${p.id}`);
-                const row = `<div class="${cls}"><span>${name} ${hostBadge}</span><span>${readyBadge}</span></div>`;
-                html += row; hostHtml += row;
-            }
-            list.innerHTML = html || '<div style="color:#aaa;">لا يوجد لاعبين</div>';
-            hostList.innerHTML = hostHtml || '<div style="color:#aaa;font-size:0.85rem;">لا يوجد لاعبين بعد</div>';
-            if (isMpHost) {
-                id('mp-host-wait-msg').textContent = `في انتظار انضمام اللاعبين... (${players.length})`;
-                const allReady = players.length >= 2 && players.every(p => p.ready);
-                id('btn-mp-start').disabled = !allReady;
-                id('btn-mp-start').style.opacity = allReady ? '1' : '0.5';
-                id('mp-host-controls').classList.remove('hidden');
-                id('mp-host-size-select').classList.remove('hidden');
-                // Update ready button text with host's name if already set
-                const hostPlayer = players.find(p => p.host);
-                const readyBtn = id('btn-mp-ready');
-                if (hostPlayer && hostPlayer.name) {
-                    readyBtn.textContent = `✏️ ${hostPlayer.name}`;
-                    readyBtn.title = 'انقر لتغيير اسمك';
-                } else {
-                    readyBtn.textContent = '✅ جاهز';
-                    readyBtn.title = '';
-                }
-            }
-        }
-
-        // ========== Competition Logic ==========
-        function mpGenerateMatches(mode, players) {
-            const names = players.filter(p => p.name).map(p => ({id:p.id, name:p.name}));
-            if (names.length < 2) return {matches:[], standings:[], groups:[]};
-            if (mode === 'league') return mpGenLeague(names);
-            if (mode === 'tournament') return mpGenTournament(names);
-            if (mode === 'groups') return mpGenGroups(names);
-            return {matches:[], standings:[], groups:[]};
-        }
-
-        // ===== League (Round Robin) =====
-        function mpGenLeague(players) {
-            const matches = [];
-            for (let i = 0; i < players.length; i++) {
-                for (let j = i + 1; j < players.length; j++) {
-                    matches.push({id:`m${matches.length}`, p1Id:players[i].id, p2Id:players[j].id, p1Name:players[i].name, p2Name:players[j].name, p1Score:0, p2Score:0, winner:null, status:'pending'});
-                }
-            }
-            const standings = players.map(p => ({id:p.id, name:p.name, pts:0, gf:0, ga:0, gd:0, w:0, d:0, l:0, played:0}));
-            return {matches, standings, groups:[]};
-        }
-
-        // ===== Tournament (Single Elimination) =====
-        function mpGenTournament(players) {
-            const n = players.length;
-            const size = 1 << Math.ceil(Math.log2(n));
-            // Build bracket array: leaf-first, bottom-up
-            // Slot indices: 0..size-1 = players, size..2*size-2 = matches
-            const bracket = new Array(2 * size - 1).fill(null).map(() => ({player:null, entry:null}));
-            // Place players at leaf slots (seeded)
-            const leafStart = size - 1;
-            for (let i = 0; i < size; i++) {
-                if (i < n) bracket[leafStart + i] = {player:players[i], entry:null};
-                else bracket[leafStart + i] = {player:null, entry:null};
-            }
-            // Create matches bottom-up
-            const matches = [];
-            let matchId = 0;
-            for (let i = 0; i < size - 1; i++) {
-                const leftChild = 2 * i + 1;
-                const rightChild = 2 * i + 2;
-                const left = bracket[leftChild] ? (bracket[leftChild].player || bracket[leftChild].entry) : null;
-                const right = bracket[rightChild] ? (bracket[rightChild].player || bracket[rightChild].entry) : null;
-                if (left && right) {
-                    const m = {id:`m${matchId++}`, p1Id:left.id, p2Id:right.id, p1Name:left.name, p2Name:right.name, p1Score:0, p2Score:0, winner:null, status:'pending', round:0, bracketIdx:i};
-                    bracket[i] = {player:null, entry:m};
-                    matches.push(m);
-                } else if (left && !right) {
-                    // Left is a bye
-                    const m = {id:`m${matchId++}`, p1Id:left.id, p2Id:null, p1Name:left.name, p2Name:'BYE', p1Score:0, p2Score:0, winner:left.id, status:'bye', round:0, bracketIdx:i};
-                    bracket[i] = {player:null, entry:m};
-                    matches.push(m);
-                } else {
-                    bracket[i] = {player:null, entry:null};
-                }
-            }
-            const standings = players.map(p => ({id:p.id, name:p.name, pts:0, gf:0, ga:0, gd:0, w:0, d:0, l:0, played:0}));
-            return {matches, standings, groups:[], bracket};
-        }
-        // Advance tournament winner
-        function mpAdvanceTournament(winnerId, match) {
-            if (!mpState.bracket || match.bracketIdx == null) return;
-            const allPlayers = mpState.players.filter(p => p.name);
-            const idx = match.bracketIdx;
-            const parent = Math.floor((idx - 1) / 2);
-            if (parent >= 0 && mpState.bracket[parent]) {
-                const sibling = idx % 2 === 0 ? idx - 1 : idx + 1;
-                const sibEntry = mpState.bracket[sibling];
-                let otherPlayer = null;
-                if (sibEntry) {
-                    if (sibEntry.player) otherPlayer = sibEntry.player;
-                    else if (sibEntry.entry && sibEntry.entry.winner) {
-                        otherPlayer = allPlayers.find(p => p.id === sibEntry.entry.winner);
-                    }
-                }
-                const parentEntry = mpState.bracket[parent] ? mpState.bracket[parent].entry : null;
-                const wPlayer = allPlayers.find(p => p.id === winnerId);
-                if (parentEntry && otherPlayer && wPlayer) {
-                    parentEntry.p1Id = wPlayer.id; parentEntry.p2Id = otherPlayer.id;
-                    parentEntry.p1Name = wPlayer.name; parentEntry.p2Name = otherPlayer.name;
-                    parentEntry.status = 'pending';
-                    parentEntry.bracketIdx = parent;
-                    if (!mpState.matches.find(m => m.id === parentEntry.id)) {
-                        mpState.matches.push(parentEntry);
-                    }
-                } else if (parentEntry && wPlayer && parentEntry.p1Id == null) {
-                    parentEntry.p1Id = wPlayer.id; parentEntry.p1Name = wPlayer.name;
-                }
-            }
-        }
-
-        // ===== Groups + Knockout =====
-        function mpGenGroups(players) {
-            const n = players.length;
-            const numGroups = Math.max(2, Math.min(8, Math.floor(n / 3)));
-            const groups = Array.from({length:numGroups}, (_, i) => ({name:`المجموعة ${String.fromCharCode(65+i)}`, players:[], standings:[], matches:[]}));
-            // Distribute players
-            for (let i = 0; i < n; i++) {
-                groups[i % numGroups].players.push(players[i]);
-            }
-            const allMatches = [];
-            const allStandings = [];
-            for (const g of groups) {
-                const pl = g.players;
-                for (let i = 0; i < pl.length; i++) {
-                    for (let j = i + 1; j < pl.length; j++) {
-                        allMatches.push({id:`gm${allMatches.length}`, p1Id:pl[i].id, p2Id:pl[j].id, p1Name:pl[i].name, p2Name:pl[j].name, p1Score:0, p2Score:0, winner:null, status:'pending', group:g.name});
-                    }
-                }
-                g.standings = pl.map(p => ({id:p.id, name:p.name, pts:0, gf:0, ga:0, gd:0, w:0, d:0, l:0, played:0}));
-            }
-            for (const p of players) {
-                allStandings.push({id:p.id, name:p.name, pts:0, gf:0, ga:0, gd:0, w:0, d:0, l:0, played:0});
-            }
-            return {matches:allMatches, standings:allStandings, groups};
-        }
-
-        // ========== Start Competition ==========
-        id('btn-mp-start').onclick = () => {
-            if (!isMpHost) return;
-            const mode = mpState.mode;
-            const namedPlayers = mpState.players.filter(p => p.name && (p.host || mpConns[p.id]));
-            if (namedPlayers.length < 2) { alert('يجب أن يكون على الأقل 2 لاعبين بأسماء'); return; }
-            const result = mpGenerateMatches(mode, namedPlayers);
-            mpState.matches = result.matches;
-            mpState.standings = result.standings;
-            mpState.groups = result.groups;
-            mpState.currentMatchIdx = 0;
-            mpState.phase = 'competition';
-            mpState.compOver = false;
-            id('phase-mp-lobby').classList.add('hidden');
-            id('phase-mp-competition').classList.remove('hidden');
-            mpBroadcast({type:'mp_competition_start', mode, matches:result.matches, standings:result.standings, groups:result.groups, bracket:result.bracket||null, currentMatchIdx:0});
-            mpRenderCompetition();
-            mpSaveState();
-            mpStartNextMatch();
-        };
-
-        // ========== Competition UI ==========
-        function mpRenderCompetition() {
-            const container = id('mp-comp-content');
-            const modeLabel = id('mp-comp-mode');
-            const modeNames = {league:'🏆 دوري', tournament:'⚔️ بطولة', groups:'🌍 مجموعات+بطولة'};
-            modeLabel.textContent = modeNames[mpState.mode] || 'مسابقة';
-            let html = '';
-            if (mpState.mode === 'groups' && mpState.groups.length > 0) {
-                html += mpRenderGroupsStandings();
-            } else {
-                html += mpRenderStandingsTable(mpState.standings);
-            }
-            html += mpRenderMatchesList();
-            // Ready button for current match
-            const match = mpState.matches[mpState.currentMatchIdx];
-            if (match && match.status === 'waiting_ready') {
-                const amPlayer = mpState.myId === match.p1Id || mpState.myId === match.p2Id;
-                if (amPlayer) {
-                    const myReady = (mpState.myId === match.p1Id) ? match.p1Ready : match.p2Ready;
-                    if (!myReady) {
-                        html += `<div style="margin:8px 0;text-align:center;"><button class="btn btn-start" id="btn-mp-ready-match" style="font-size:1rem;padding:10px 24px;">✅ أنا جاهز للمباراة</button></div>`;
-                    } else {
-                        html += `<div style="margin:8px 0;text-align:center;padding:8px;background:rgba(39,174,96,0.1);border-radius:10px;font-weight:700;color:#27ae60;">✅ تم تأكيد جاهزيتك. في انتظار الخصم...</div>`;
-                    }
-                } else {
-                    html += `<div style="margin:8px 0;text-align:center;padding:8px;background:rgba(241,196,15,0.1);border-radius:10px;font-weight:600;color:#f39c12;">⏳ في انتظار تجهز اللاعبين للمباراة</div>`;
-                }
-            }
-            container.innerHTML = html;
-            // Show cloud URL
-            const cloudEl = id('mp-cloud-status');
-            const cloudLink = id('mp-cloud-link');
-            if (mpState.cloudUrl || mpCloudUrl) {
-                cloudEl.style.display = 'block';
-                cloudLink.textContent = mpState.cloudUrl || mpCloudUrl;
-                cloudLink.href = mpState.cloudUrl || mpCloudUrl;
-            } else {
-                cloudEl.style.display = 'none';
-            }
-            // Attach ready handler
-            const readyBtn = id('btn-mp-ready-match');
-            if (readyBtn) {
-                readyBtn.onclick = () => {
-                    if (isMpHost) {
-                        mpHandleMatchReady(mpState.myId);
-                    } else if (mpState.myConn) {
-                        try { mpState.myConn.send({type:'mp_match_ready'}); } catch(e) {}
-                        if (match) {
-                            if (mpState.myId === match.p1Id) match.p1Ready = true;
-                            else if (mpState.myId === match.p2Id) match.p2Ready = true;
-                        }
-                        mpRenderCompetition();
-                    }
-                };
-            }
-        }
-
-        function mpRenderStandingsTable(standings) {
-            const sorted = [...standings].sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-            let html = '<div class="mp-section"><h4>📊 الترتيب</h4><table class="mp-table"><tr><th>#</th><th>اللاعب</th><th>لعب</th><th>ف</th><th>ت</th><th>خ</th><th>نقاط</th><th>له</th><th>عليه</th><th>±</th></tr>';
-            for (let i = 0; i < sorted.length; i++) {
-                const p = sorted[i];
-                const rankCls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
-                const name = p.name || '?';
-                html += `<tr class="${rankCls}"><td>${i+1}</td><td style="font-weight:600;">${name}</td><td>${p.played}</td><td style="color:#27ae60;">${p.w}</td><td style="color:#f39c12;">${p.d}</td><td style="color:#e74c3c;">${p.l}</td><td style="font-weight:700;color:#1a2332;">${p.pts}</td><td>${p.gf}</td><td>${p.ga}</td><td style="font-weight:600;color:${p.gd > 0 ? '#27ae60' : p.gd < 0 ? '#e74c3c' : '#7f8c8d'};">${p.gd > 0 ? '+'+p.gd : p.gd}</td></tr>`;
-            }
-            html += '</table></div>';
-            return html;
-        }
-
-        function mpRenderGroupsStandings() {
-            let html = '';
-            for (const g of mpState.groups) {
-                html += `<div class="mp-section"><h4>📂 ${g.name}</h4>`;
-                html += mpRenderStandingsTable(g.standings);
-                html += '</div>';
-            }
-            return html;
-        }
-
-        function mpRenderMatchesList() {
-            let html = '<div class="mp-section"><h4>📋 المباريات</h4>';
-            const pending = mpState.matches.filter(m => m.status === 'pending' || m.status === 'active');
-            const done = mpState.matches.filter(m => m.status === 'done' || m.status === 'bye');
-            if (pending.length > 0) {
-                html += '<div style="margin-bottom:6px;">';
-                for (const m of pending) {
-                    const isActive = mpState.currentMatchIdx >= 0 && mpState.matches.indexOf(m) === mpState.currentMatchIdx && mpState.matchActive;
-                    html += `<div class="mp-match-card ${isActive ? 'active' : ''}"><span>${m.p1Name || '?'} <span class="vs">🆚</span> ${m.p2Name || '?'}</span><span>${isActive ? '⚡ جارية' : '⏳ قادمة'}</span></div>`;
-                }
-                html += '</div>';
-            }
-            if (done.length > 0) {
-                html += '<div style="margin-top:4px;">';
-                for (const m of done) {
-                    const w = m.winner === m.p1Id ? m.p1Name : m.winner === m.p2Id ? m.p2Name : 'تعادل';
-                    const sc = `${m.p1Score || 0} - ${m.p2Score || 0}`;
-                    html += `<div class="mp-match-card done"><span>${m.p1Name || '?'} <span class="vs">🆚</span> ${m.p2Name || '?'}</span><span><span class="score">${sc}</span> | ${m.winner ? '🏆 ' + w : '🤝'}</span></div>`;
-                }
-                html += '</div>';
-            }
-            if (pending.length === 0 && done.length === 0) html += '<div style="color:#aaa;font-size:0.85rem;">لا توجد مباريات</div>';
-            html += '</div>';
-            return html;
-        }
-
-        // ========== Match Play ==========
-        function mpStartNextMatch() {
-            if (!isMpHost) return;
-            let matchIdx = -1;
-            for (let i = 0; i < mpState.matches.length; i++) {
-                const m = mpState.matches[i];
-                if ((m.status === 'pending' || m.status === 'waiting_ready') && m.p1Id && m.p2Id && m.p1Id !== 'null' && m.p2Id !== 'null') {
-                    matchIdx = i; break;
-                }
-            }
-            if (matchIdx < 0) { mpFinishCompetition(); return; }
-            mpState.currentMatchIdx = matchIdx;
-            const match = mpState.matches[matchIdx];
-            if (match.status === 'bye') {
-                match.status = 'done';
-                mpSaveState();
-                mpBroadcast({type:'mp_match_end', matches:mpState.matches, standings:mpState.standings, compOver:false});
-                mpRenderCompetition();
-                mpStartNextMatch();
-                return;
-            }
-            // Set to waiting_ready instead of active
-            match.status = 'waiting_ready';
-            match.p1Ready = false; match.p2Ready = false;
-            mpState.matchActive = false;
-            mpState.matchP1Id = match.p1Id;
-            mpState.matchP2Id = match.p2Id;
-            mpBroadcast({type:'mp_match_ready_wait', p1Id:match.p1Id, p2Id:match.p2Id, p1Name:match.p1Name, p2Name:match.p2Name});
-            mpUpdateMatchUI(match.p1Name, match.p2Name, true);
-            mpRenderCompetition();
-        }
-
-        function mpHandleMatchReady(pid) {
-            if (!isMpHost) return;
-            const match = mpState.matches[mpState.currentMatchIdx];
-            if (!match || match.status !== 'waiting_ready') return;
-            if (pid === match.p1Id) match.p1Ready = true;
-            else if (pid === match.p2Id) match.p2Ready = true;
-            mpBroadcast({type:'mp_match_ready_update', p1Id:match.p1Id, p2Id:match.p2Id, p1Ready:match.p1Ready, p2Ready:match.p2Ready});
-            mpRenderCompetition();
-            if (match.p1Ready && match.p2Ready) {
-                match.status = 'active';
-                mpState.matchActive = true;
-                mpBroadcast({type:'mp_match_begin', p1Id:match.p1Id, p2Id:match.p2Id, p1Name:match.p1Name, p2Name:match.p2Name});
-                mpSetupHostMatch(match);
-                mpUpdateMatchUI(match.p1Name, match.p2Name);
-                mpRenderCompetition();
-            }
-        }
-
-        function mpSetupHostMatch(match) {
-            gameMode = 'mp';
-            const p1 = mpState.players.find(p => p.id === match.p1Id);
-            const p2 = mpState.players.find(p => p.id === match.p2Id);
-            if (mpState.myId === match.p1Id) {
-                mySym = 'X'; myName = p1 ? p1.name : match.p1Name; opponentName = p2 ? p2.name : match.p2Name;
-            } else if (mpState.myId === match.p2Id) {
-                mySym = 'O'; myName = p2 ? p2.name : match.p2Name; opponentName = p1 ? p1.name : match.p1Name;
-            } else {
-                mySym = '';
-            }
-            updateNamesUI(); updateMySymUI(); updateTurnUI(); updateScoreUI();
-            id('c-txt').disabled = true; id('c-send').disabled = true;
-        }
-
-        function mpUpdateMatchUI(p1Name, p2Name, waitingReady) {
-            const area = id('mp-match-area');
-            area.classList.remove('hidden');
-            if (waitingReady) {
-                id('mp-match-notice').textContent = `⏳ ${p1Name || '?'} 🆚 ${p2Name || '?'} - في انتظار تجهز اللاعبين`;
-            } else {
-                id('mp-match-notice').textContent = `⚡ ${p1Name || '?'} 🆚 ${p2Name || '?'}`;
-            }
-            id('lobby').classList.add('hidden');
-        }
-
-        function mpApplyMove(data) {
-            if (data.surrender) {
-                if (data.scores) scores = {...data.scores};
-                gameOver = true; syncBoardUI(); updateScoreUI(); updateTurnUI();
-                id('mp-match-area').classList.add('hidden');
-                mpShowNotification('🏳️ أحد اللاعبين انسحب!', 'info');
-                return;
-            }
-            if (board[data.r] && board[data.r][data.c] !== null) return;
-            if (board[data.r] && used[data.r][data.c]) return;
-            board[data.r][data.c] = data.p; moves++;
-            if (data.pts > 0) {
-                scores = {...data.scores};
-                used = data.used || used;
-                const wins = findAllWins(data.r, data.c, data.p);
-                for (const w of wins) { highlightWin(w, data.p); drawWinLine(w, data.p); }
-            } else {
-                if (data.scores) scores = {...data.scores};
-                if (data.used) used = data.used;
-                if (data.cur) curPlayer = data.cur;
-            }
-            syncBoardUI(); updateScoreUI(); updateTurnUI();
-            const allUsed = used.flat().every(v => v);
-            if (allUsed || moves >= gridSize * gridSize) { gameOver = true; }
-        }
-
-        function mpCheckMatchEnd() {
-            const allUsed = used.flat().every(v => v);
-            if (allUsed || moves >= gridSize * gridSize) {
-                gameOver = true;
-                const winner = scores.X > scores.O ? 'X' : scores.O > scores.X ? 'O' : null;
-                mpEndMatch(scores, winner);
-            }
-        }
-
-        function mpEndMatch(scores, winner) {
-            if (!isMpHost) return;
-            const match = mpState.matches[mpState.currentMatchIdx];
-            if (!match) return;
-            match.status = 'done';
-            match.p1Score = scores.X || 0;
-            match.p2Score = scores.O || 0;
-            match.winner = winner === 'X' ? match.p1Id : winner === 'O' ? match.p2Id : null;
-            mpUpdateStandings(match);
-            if (mpState.mode === 'tournament' && match.winner) {
-                const allPlayers = mpState.players.filter(p => p.name);
-                const wPlayer = allPlayers.find(p => p.id === match.winner);
-                if (wPlayer) mpAdvanceTournament(match.winner, match);
-            }
-            mpState.matchActive = false;
-            // Check if any pending matches remain
-            let hasPending = mpState.matches.some(m => m.status === 'pending' && m.p1Id && m.p2Id);
-            // Groups+knockout: after all group matches, generate knockout
-            if (!hasPending && mpState.mode === 'groups' && mpState.groups.length > 0) {
-                const advancers = [];
-                for (const g of mpState.groups) {
-                    const sorted = [...(g.standings||[])].sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
-                    const top2 = sorted.slice(0, 2);
-                    for (const p of top2) {
-                        const pl = mpState.players.find(x => x.id === p.id);
-                        if (pl) advancers.push({id:pl.id, name:pl.name || p.name});
-                    }
-                }
-                if (advancers.length >= 2) {
-                    const ko = mpGenTournament(advancers);
-                    mpState.matches = ko.matches;
-                    mpState.bracket = ko.bracket;
-                    hasPending = mpState.matches.some(m => m.status === 'pending' && m.p1Id && m.p2Id);
-                }
-            }
-            const compOver = !hasPending;
-            mpSaveState();
-            mpBroadcast({type:'mp_match_end', matches:mpState.matches, standings:mpState.standings, bracket:mpState.bracket, groups:mpState.groups, nextMatchIdx:mpState.currentMatchIdx, compOver});
-            mpRenderCompetition();
-            if (compOver) {
-                mpShowNotification('🏆 انتهت المسابقة!', 'win');
-                id('mp-match-area').classList.add('hidden');
-            } else {
-                const nm = mpState.matches[mpState.currentMatchIdx];
-                id('mp-match-notice').textContent = nm ? `⏳ المباراة القادمة: ${nm.p1Name || '?'} 🆚 ${nm.p2Name || '?'}` : '⏳ انتظر...';
-                setTimeout(() => mpStartNextMatch(), 3000);
-            }
-        }
-
-        function mpUpdateStandings(match) {
-            const updateOne = (s, scored, conceded, isWinner, isDraw) => {
-                if (!s) return;
-                s.played++; s.gf += scored; s.ga += conceded; s.gd = s.gf - s.ga;
-                if (isDraw) { s.d++; s.pts += 1; }
-                else if (isWinner) { s.w++; s.pts += 3; }
-                else { s.l++; }
-            };
-            const doUpdate = (id, scored, conceded, isWinner, isDraw) => {
-                updateOne(mpState.standings.find(p => p.id === id), scored, conceded, isWinner, isDraw);
-                if (mpState.groups && mpState.groups.length > 0) {
-                    for (const g of mpState.groups) {
-                        updateOne(g.standings.find(p => p.id === id), scored, conceded, isWinner, isDraw);
-                    }
-                }
-            };
-            if (match.winner) {
-                doUpdate(match.p1Id, match.p1Score, match.p2Score, match.winner === match.p1Id, false);
-                doUpdate(match.p2Id, match.p2Score, match.p1Score, match.winner === match.p2Id, false);
-            } else {
-                doUpdate(match.p1Id, match.p1Score, match.p2Score, false, true);
-                doUpdate(match.p2Id, match.p2Score, match.p1Score, false, true);
-            }
-        }
-
-        function mpFinishCompetition() {
-            mpState.compOver = true;
-            mpBroadcast({type:'mp_match_end', matches:[], standings:mpState.standings, nextMatchIdx:mpState.matches.length, compOver:true});
-            mpShowNotification('🏆 انتهت المسابقة!', 'win');
-        }
-
-        // ========== Notifications ==========
-        function mpShowNotification(msg, type) {
-            let el = id('mp-notif');
-            if (!el) {
-                el = document.createElement('div');
-                el.id = 'mp-notif'; el.className = 'mp-notification';
-                document.body.appendChild(el);
-            }
-            el.textContent = msg;
-            el.className = 'mp-notification ' + type + ' show';
-            setTimeout(() => el.classList.remove('show'), 4000);
-        }
-
-        // ========== Player Leave ==========
-        function mpHandlePlayerLeave(pid, reason) {
-            if (!mpConns[pid]) return;
-            delete mpConns[pid];
-            const idx = mpState.players.findIndex(p => p.id === pid);
-            if (idx >= 0) mpState.players.splice(idx, 1);
-            mpBroadcast({type:'mp_player_list', players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode}))});
-            mpRenderPlayerList();
-            mpShowNotification(`🔴 لاعب غادر الغرفة: ${reason}`, 'info');
-        }
-
-        // ========== Button Handlers ==========
-        id('btn-mp-back').onclick = () => {
-            id('phase-mp-choose').classList.add('hidden');
-            id('phase-choose').classList.remove('hidden');
-        };
-        // Import JSON handlers
-        id('btn-mp-import-lobby').onclick = () => { id('mp-import-lobby-file').click(); };
-        id('mp-import-lobby-file').onchange = (e) => {
-            const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                try {
-                    const data = JSON.parse(ev.target.result);
-                    mpState.mode = data.mode || 'league';
-                    mpState.matches = data.matches || [];
-                    mpState.standings = data.standings || [];
-                    mpState.groups = data.groups || [];
-                    mpState.bracket = data.bracket || null;
-                    mpState.currentMatchIdx = data.currentMatchIdx != null ? data.currentMatchIdx : -1;
-                    mpState.compOver = data.compOver || false;
-                    mpState.saveCode = data.saveCode || 'imported';
-                    mpState.cloudUrl = data.cloudUrl || '';
-                    if (mpState.cloudUrl) mpCloudUrl = mpState.cloudUrl;
-                    gridSize = data.gridSize || gridSize;
-                    if (mpState.players && mpState.players.length > 0) {
-                        mpState.players = mpState.players.map(p => ({...p, ready: false}));
-                    }
-                    id('mp-lobby-size').textContent = gridSize;
-                    id('mp-lobby-size2').textContent = gridSize;
-                    id('lobby-size-label').textContent = gridSize;
-                    id('lobby-size-label2').textContent = gridSize;
-                    initGameState();
-                    renderBoard();
-                    mpSaveState();
-                    mpShowNotification('📂 تم استيراد المسابقة. افتح غرفة لاستئنافها.', 'info');
-                } catch(err) { alert('❌ فشل استيراد الملف.'); }
-            };
-            reader.readAsText(file);
-            e.target.value = '';
-        };
-        id('btn-mp-leave').onclick = () => {
-            if (isMpHost) mpBroadcast({type:'mp_host_left'});
-            mpGoToLobby();
-        };
-        id('btn-mp-host-cancel').onclick = () => { mpGoToLobby(); };
-        id('btn-mp-join-cancel').onclick = () => { mpGoToLobby(); };
-        id('btn-mp-exit-comp').onclick = () => {
-            if (confirm('هل تريد إنهاء المسابقة والعودة إلى القائمة؟')) {
-                gameMode = 'p2p';
-                if (isMpHost) mpBroadcast({type:'mp_host_left'});
-                mpGoToLobby();
-                id('phase-mp-competition').classList.add('hidden');
-                id('phase-choose').classList.remove('hidden');
-            }
-        };
-
-        // Import JSON in competition view
-        id('btn-mp-export').onclick = () => {
-            const data = {
-                mode: mpState.mode, players: mpState.players,
-                matches: mpState.matches, standings: mpState.standings,
-                groups: mpState.groups, bracket: mpState.bracket,
-                currentMatchIdx: mpState.currentMatchIdx, compOver: mpState.compOver,
-                gridSize, saveCode: mpState.saveCode || roomCode || 'quintet',
-                cloudUrl: mpState.cloudUrl || '',
-                timestamp: Date.now(), exportedBy: myName || 'unknown'
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `quintet_${data.saveCode}_${new Date().toISOString().slice(0,10)}.json`;
-            a.click();
-            URL.revokeObjectURL(a.href);
-        };
-        id('btn-mp-import').onclick = () => { id('mp-import-file').click(); };
-        id('mp-import-file').onchange = (e) => {
-            const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                try {
-                    const data = JSON.parse(ev.target.result);
-                    mpState.mode = data.mode || mpState.mode;
-                    mpState.matches = data.matches || mpState.matches;
-                    mpState.standings = data.standings || mpState.standings;
-                    mpState.groups = data.groups || mpState.groups;
-                    mpState.bracket = data.bracket || mpState.bracket;
-                    mpState.currentMatchIdx = data.currentMatchIdx != null ? data.currentMatchIdx : mpState.currentMatchIdx;
-                    mpState.compOver = data.compOver || false;
-                    mpState.saveCode = data.saveCode || mpState.saveCode;
-                    mpState.cloudUrl = data.cloudUrl || mpState.cloudUrl;
-                    if (mpState.cloudUrl) mpCloudUrl = mpState.cloudUrl;
-                    gridSize = data.gridSize || gridSize;
-                    if (mpState.players && mpState.players.length > 0) {
-                        mpState.players = mpState.players.map(p => ({...p, ready: false, host: p.id === 'host'}));
-                    }
-                    id('mp-lobby-size').textContent = gridSize;
-                    id('mp-lobby-size2').textContent = gridSize;
-                    id('lobby-size-label').textContent = gridSize;
-                    id('lobby-size-label2').textContent = gridSize;
-                    initGameState();
-                    renderBoard();
-                    id('phase-mp-competition').classList.remove('hidden');
-                    mpRenderCompetition();
-                    mpSaveState();
-                    mpShowNotification('📂 تم استيراد المسابقة بنجاح', 'info');
-                } catch(err) { alert('❌ فشل استيراد الملف.'); }
-            };
-            reader.readAsText(file);
-            e.target.value = '';
-        };
-
-        // Standings overlay
-        id('btn-mp-standings').onclick = () => {
-            const overlay = id('standings-overlay');
-            const content = id('standings-content');
-            overlay.style.display = 'flex';
-            let html = mpRenderStandingsTable(mpState.standings);
-            html += '<hr style="margin:8px 0;">';
-            html += mpRenderMatchesList();
-            content.innerHTML = html;
-        };
-        id('btn-close-standings').onclick = () => {
-            id('standings-overlay').style.display = 'none';
-        };
-        id('standings-overlay').onclick = (e) => {
-            if (e.target === e.currentTarget) id('standings-overlay').style.display = 'none';
-        };
-
-        // Ready button
-        id('btn-mp-ready').onclick = () => {
-            if (isMpHost) {
-                const player = mpState.players.find(p=>p.id==='host');
-                const name = prompt('أدخل اسمك كمضيف:', player?.name || 'المضيف');
-                if (!name) return;
-                if (player) {
-                    player.name = name; player.ready = true;
-                    if (!player.personalCode) player.personalCode = mpGeneratePersonalCode();
-                }
-                mpBroadcast({type:'mp_player_list', players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode}))});
-                mpRenderPlayerList();
-                mpShowNotification(`✅ مرحباً ${name}! 🔑 كودك: ${player?.personalCode || '???'}`, 'info');
-                return;
-            }
-            if (!mpState.myConn) return;
-            const name = prompt('أدخل اسمك:', 'لاعب');
-            if (!name) return;
-            try { mpState.myConn.send({type:'mp_set_name', name}); } catch(e) {}
-            try { mpState.myConn.send({type:'mp_ready', ready:true}); } catch(e) {}
-            const pl = mpState.players.find(p => p.id === mpState.myId);
-            if (pl) { pl.name = name; pl.ready = true; }
-            mpRenderPlayerList();
-            mpShowNotification(`✅ مرحباً ${name}!`, 'info');
-        };
-
-        // Create / Join room
-        id('btn-mp-create').onclick = () => { mpCreateRetries = 0; mpTryCreate(mpGenCode()); };
-        id('btn-mp-join').onclick = () => {
-            const code = id('mp-join-input').value.trim();
-            if (!code) { alert('أدخل كود الغرفة'); return; }
-            mpTryJoin(code);
-        };
-
-        // Client receives personal code from host
-        function mpShowPersonalCode(code) {
-            mpShowNotification(`🔑 كودك الشخصي: ${code} — احفظه لاسترجاع حسابك لاحقاً`, 'info', 10000);
-        }
-
-        // ===== Modified click handler for multiplayer =====
-        function mpOnCellClick(r, c) {
-            if (gameOver || !mpState.matchActive) return;
-            if (!mpState.myId || (mpState.myId !== mpState.matchP1Id && mpState.myId !== mpState.matchP2Id)) return;
-            if (board[r][c] !== null || used[r][c]) return;
-            const p = mpState.myId === mpState.matchP1Id ? 'X' : 'O';
-            if ((p === 'X' && curPlayer !== 'X') || (p === 'O' && curPlayer !== 'O')) return;
-
-            if (isMpHost) {
-                // Host: update locally and broadcast
-                const r2 = doMove(r, c, p);
-                if (!r2) return;
-                mpBroadcast({type:'mp_match_move', r, c, p, pts:0, scores, cur:curPlayer, used});
-                if (gameOver) {
-                    const winner = scores.X > scores.O ? 'X' : scores.O > scores.X ? 'O' : null;
-                    mpEndMatch(scores, winner);
-                }
-            } else {
-                // Client: send move to host
-                if (!doMove(r, c, p)) return;
-                try { mpState.myConn.send({type:'mp_move', r, c, p, pts:0, scores, cur:curPlayer, used}); } catch(e) {}
-                if (gameOver) {
-                    try { mpState.myConn.send({type:'mp_match_end', scores, winner: scores.X > scores.O ? 'X' : scores.O > scores.X ? 'O' : null}); } catch(e) {}
-                }
-            }
-        }
-
-        // Cell click for multiplayer is handled by the event listener below
-
-        // ========== Multiplayer Mode Button in Choose Phase ==========
-        const mpBtn = document.createElement('button');
-        mpBtn.className = 'btn btn-mp';
-        mpBtn.textContent = '👥 العب جماعي';
-        mpBtn.style.background = 'linear-gradient(135deg,#8e44ad,#9b59b6)';
-        mpBtn.style.color = '#fff';
-        mpBtn.style.marginTop = '8px';
-        const showMpChoose = () => {
-            id('phase-choose').classList.add('hidden');
-            id('phase-mp-choose').classList.remove('hidden');
-            // Show saved competitions
-            const saves = mpLoadSaves();
-            const section = id('mp-resume-section');
-            const list = id('mp-saved-list');
-            if (saves.length > 0) {
-                section.classList.remove('hidden');
-                list.innerHTML = saves.map((s, i) => {
-                    const modeNames = {league:'🏆 دوري', tournament:'⚔️ بطولة', groups:'🌍 مجموعات+بطولة'};
-                    const date = new Date(s.timestamp || Date.now());
-                    const pCount = (s.players || []).length;
-                    const done = (s.matches || []).filter(m => m.status === 'done' || m.status === 'bye').length;
-                    const total = (s.matches || []).length;
-                    const hasCloud = s.cloudUrl ? ' ☁️' : '';
-                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;margin:4px 0;background:rgba(255,255,255,0.7);border-radius:8px;border:1px solid rgba(0,0,0,0.06);font-size:0.8rem;cursor:pointer;" onclick="mpResumeSave(${i})">
-                        <span>${modeNames[s.mode]||'مسابقة'} • ${pCount} لاعب • 📅 ${date.toLocaleDateString('ar')}${hasCloud}</span>
-                        <span style="color:#7f8c8d;">${done}/${total} مباريات</span>
-                    </div>`;
-                }).join('');
-            } else {
-                section.classList.add('hidden');
-            }
-        };
-        mpBtn.onclick = showMpChoose;
-        const aiBtn = id('btn-ai');
-        if (aiBtn && aiBtn.parentNode) {
-            aiBtn.parentNode.insertBefore(mpBtn, aiBtn.nextSibling);
-        }
-
-        function mpResumeSave(idx) {
-            const saves = mpLoadSaves();
-            const s = saves[idx];
-            if (!s) return;
-            if (!confirm('هل تريد استئناف هذه المسابقة؟ ستحتاج إلى إنشاء غرفة جديدة بنفس الكود.')) return;
-            mpRestoreCloudUrl(s);
-            mpTryCreate(s.saveCode || ('RESUME' + idx));
-            mpState._pendingResume = s;
-        }
-
-        id('btn-mp-cloud-restore').onclick = () => {
-            id('mp-cloud-restore-input').classList.toggle('hidden');
-        };
-        id('btn-mp-cloud-load').onclick = async () => {
-            const url = id('mp-cloud-url-input').value.trim();
-            if (!url) return;
-            const data = await mpLoadFromCloud(url);
-            if (!data) { alert('❌ فشل تحميل البيانات من الرابط'); return; }
-            mpState.mode = data.mode || 'league';
-            mpState.matches = data.matches || [];
-            mpState.standings = data.standings || [];
-            mpState.groups = data.groups || [];
-            mpState.bracket = data.bracket || null;
-            mpState.currentMatchIdx = data.currentMatchIdx != null ? data.currentMatchIdx : -1;
-            mpState.compOver = data.compOver || false;
-            mpState.saveCode = data.saveCode || 'cloud';
-            mpState.cloudUrl = url; mpCloudUrl = url;
-            gridSize = data.gridSize || gridSize;
-            if (mpState.players && mpState.players.length > 0) {
-                mpState.players = mpState.players.map(p => ({...p, ready: false, host: p.id === 'host'}));
-            }
-            id('mp-lobby-size').textContent = gridSize;
-            id('mp-lobby-size2').textContent = gridSize;
-            id('lobby-size-label').textContent = gridSize;
-            id('lobby-size-label2').textContent = gridSize;
-            initGameState();
-            renderBoard();
-            mpSaveState();
-            mpShowNotification('☁️ تم تحميل المسابقة من الرابط السحابي', 'info');
-            id('mp-cloud-restore-input').classList.add('hidden');
-        };
-
-        // Patch: Intercept cell clicks for multiplayer mode
-        document.addEventListener('click', e => {
-            const cell = e.target.closest('.cell');
-            if (!cell || gameMode !== 'mp') return;
-            e.preventDefault();
-            e.stopPropagation();
-            const r = parseInt(cell.dataset.r);
-            const c = parseInt(cell.dataset.c);
-            mpOnCellClick(r, c);
-        });
-
-        // ========== Mode Selection ==========
-        document.querySelectorAll('.mp-mode-btn').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll('.mp-mode-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                mpState.mode = btn.dataset.mode;
-            };
-        });
-
-        // Override turn UI for multiplayer
-        const origUpdateTurn2 = updateTurnUI;
-        updateTurnUI = function() {
-            if (gameMode === 'mp') {
-                const ti = id('turn-indicator');
-                if (!mpState.matchActive) { ti.textContent = '⏳ انتظار المباراة...'; ti.className = 'waiting'; return; }
+        // تحديث عناصر الواجهة UI التفاعلية الأصلية
+        function updateTurnUI() {
+            const ti = id('turn-indicator');
+            if (mpState.isMultiplayer) {
+                if (!mpState.matchActive) { ti.textContent = '⏳ انتظار...'; ti.className = 'waiting'; return; }
                 if (gameOver) { ti.textContent = '🏁 انتهت'; ti.className = 'ended'; return; }
-                const isPlayer1 = mpState.myId === mpState.matchP1Id;
-                const isPlayer2 = mpState.myId === mpState.matchP2Id;
-                if (!isPlayer1 && !isPlayer2) {
-                    const cpName = curPlayer === 'X' ? (mpState.matches[mpState.currentMatchIdx]?.p1Name || 'X') : (mpState.matches[mpState.currentMatchIdx]?.p2Name || 'O');
-                    ti.textContent = `👀 ${cpName} يلعب`; ti.className = 'waiting'; return;
+                const isP1 = mpState.myId === mpState.matchP1Id;
+                const isP2 = mpState.myId === mpState.matchP2Id;
+                if (!isP1 && !isP2) {
+                    ti.textContent = `👀 دور ${curPlayer}`; ti.className = 'waiting'; return;
                 }
-                const mySym = isPlayer1 ? 'X' : 'O';
+                const mySym = isP1 ? 'X' : 'O';
                 if (curPlayer === mySym) { ti.textContent = '🎯 دورك!'; ti.className = 'your-turn'; }
                 else { ti.textContent = '⏳ دور الخصم'; ti.className = 'waiting'; }
                 return;
             }
-            origUpdateTurn2();
-        };
+            if (gameOver) { ti.textContent = '🏁 انتهت'; ti.className = 'ended'; return; }
+            ti.textContent = curPlayer === 'X' ? '🎯 دور X' : '⏳ دور O';
+            ti.className = curPlayer === 'X' ? 'your-turn' : 'waiting';
+        }
+
+        function updateScoreUI() { id('score-x').textContent = scoreX; id('score-o').textContent = scoreO; }
+        function updateNamesUI() { id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name; q('.pname-x').textContent = `X: ${p1Name}`; q('.pname-o').textContent = `O: ${p2Name}`; }
+        function updateConnUI(online, txt) {
+            const dot = id('conn-dot'); const elTxt = id('conn-text');
+            if (online) { dot.className = 'online'; elTxt.textContent = txt; }
+            else { dot.className = 'disconnected'; elTxt.textContent = txt; }
+        }
+
+        // ==========================================
+        // 🌐 إدارة اللعب الجماعي الفوري المشفر والأصلي بالكامل
+        // ==========================================
+
+        id('btn-create-lobby').addEventListener('click', () => {
+            const randomCode = 'Q30-' + Math.floor(10000 + Math.random() * 90000);
+            id('status-msg').textContent = '📡 جاري جلب اتصال مخصص مشفر...';
+            initPeerSystem(randomCode, true);
+        });
+
+        id('btn-join-lobby').addEventListener('click', () => {
+            const code = id('join-input').value.trim().toUpperCase();
+            if (!code.startsWith('Q30-') || code.length < 8) {
+                id('status-msg').textContent = '⚠️ المعرف غير صحيح! يجب أن يكون مثل Q30-12345';
+                return;
+            }
+            id('status-msg').textContent = '📡 جاري البحث والاتصال عبر الـ STUN...';
+            initPeerSystem(null, false, code);
+        });
+
+        function initPeerSystem(chosenId, isHost, targetHostId = null) {
+            mpState.isMultiplayer = true;
+            mpState.isHost = isHost;
+
+            // تطبيق الإعدادات المطورة المضادة للحظر
+            mpState.peer = chosenId ? new Peer(chosenId, PEER_CONFIG) : new Peer(PEER_CONFIG);
+
+            mpState.peer.on('open', (idParam) => {
+                mpState.myId = idParam;
+                updateConnUI(true, isHost ? 'غرفة منشأة' : 'متصل بالشبكة');
+                id('chat-txt').disabled = false; id('chat-send').disabled = false;
+
+                if (isHost) {
+                    mpState.hostId = idParam;
+                    id('room-id').textContent = idParam;
+                    id('phase-choose').classList.add('hidden');
+                    id('phase-room').classList.remove('hidden');
+                    mpState.peersList = [{ id: idParam, name: 'منشئ الغرفة (أنت)', ready: false }];
+                    renderLobbyPlayers();
+                } else {
+                    mpState.hostId = targetHostId;
+                    const conn = mpState.peer.connect(targetHostId, { reliable: true });
+                    setupConnection(conn);
+                }
+            });
+
+            mpState.peer.on('connection', (conn) => {
+                if (isHost) setupConnection(conn);
+            });
+
+            mpState.peer.on('error', (err) => {
+                console.error(err);
+                id('status-msg').textContent = '❌ تعذر الاتصال بالسيرفر، تأكد من الإنترنت الخاص بك.';
+                updateConnUI(false, 'خطأ اتصال');
+            });
+        }
+
+        function setupConnection(conn) {
+            if (mpState.isHost) {
+                mpState.connections[conn.peer] = conn;
+                // إرسال الإعدادات الأولية للداخل الجديد
+                setTimeout(() => {
+                    conn.send({
+                        type: 'INIT_LOBBY_STATE',
+                        boardSize: BOARD_SIZE,
+                        peersList: mpState.peersList,
+                        matches: mpState.matches,
+                        currentMatchIdx: mpState.currentMatchIdx,
+                        matchActive: mpState.matchActive,
+                        scoreX, scoreO, p1Name, p2Name, curPlayer,
+                        boardState: board
+                    });
+                }, 600);
+            } else {
+                mpState.connections[conn.peer] = conn;
+            }
+
+            conn.on('data', (data) => {
+                handleNetworkMessage(conn.peer, data);
+            });
+
+            conn.on('close', () => {
+                appendChatMessage('النظام', `انقطع اتصال العضو: ${conn.peer}`, 'sys');
+                if (mpState.isHost) {
+                    delete mpState.connections[conn.peer];
+                    mpState.peersList = mpState.peersList.filter(p => p.id !== conn.peer);
+                    renderLobbyPlayers();
+                    hostAutoManageTournament();
+                } else if (conn.peer === mpState.hostId) {
+                    alert('⚠️ انقطع الاتصال بصاحب الغرفة الرئيسي!');
+                    location.reload();
+                }
+            });
+        }
+
+        function handleNetworkMessage(senderId, data) {
+            if (data.type === 'INIT_LOBBY_STATE') {
+                BOARD_SIZE = data.boardSize;
+                mpState.peersList = data.peersList;
+                mpState.matches = data.matches;
+                mpState.currentMatchIdx = data.currentMatchIdx;
+                mpState.matchActive = data.matchActive;
+                scoreX = data.scoreX; scoreO = data.scoreO;
+                p1Name = data.p1Name; p2Name = data.p2Name;
+                curPlayer = data.curPlayer; board = data.boardState;
+
+                id('room-id').textContent = mpState.hostId;
+                id('phase-choose').classList.add('hidden');
+                id('phase-room').classList.remove('hidden');
+                
+                renderLobbyPlayers();
+                updateScoreUI(); updateNamesUI(); updateTurnUI();
+                rebuildBoardFromState();
+                updateMySymbolLabel();
+
+                if (mpState.matchActive && !gameOver) {
+                    id('lobby').style.display = 'none';
+                }
+            }
+
+            if (data.type === 'LOBBY_UPDATE') {
+                mpState.peersList = data.peersList;
+                renderLobbyPlayers();
+                updateMySymbolLabel();
+            }
+
+            if (data.type === 'CHAT') {
+                appendChatMessage(data.sender, data.text, 'other');
+            }
+
+            if (data.type === 'READY_TOGGLE') {
+                if (mpState.isHost) {
+                    const player = mpState.peersList.find(p => p.id === senderId);
+                    if (player) { player.ready = data.ready; broadcastLobbyState(); }
+                    hostAutoManageTournament();
+                }
+            }
+
+            if (data.type === 'START_MATCH') {
+                BOARD_SIZE = data.boardSize;
+                mpState.matches = data.matches;
+                mpState.currentMatchIdx = data.currentMatchIdx;
+                mpState.matchActive = true;
+                p1Name = data.p1Name; p2Name = data.p2Name;
+                scoreX = data.scoreX; scoreO = data.scoreO;
+                
+                id('lobby').style.display = 'none';
+                startNewMatch();
+                updateNamesUI(); updateScoreUI(); updateMySymbolLabel();
+            }
+
+            if (data.type === 'MOVE') {
+                executeMove(data.r, data.c);
+            }
+        }
+
+        function broadcast(obj) {
+            Object.values(mpState.connections).forEach(conn => {
+                if (conn.open) conn.send(obj);
+            });
+        }
+
+        function broadcastLobbyState() {
+            broadcast({ type: 'LOBBY_UPDATE', peersList: mpState.peersList });
+        }
+
+        function renderLobbyPlayers() {
+            const listEl = id('lobby-players-list');
+            listEl.innerHTML = '';
+            mpState.peersList.forEach((p, idx) => {
+                let roleLabel = '👀 مشاهد';
+                if (idx === 0) roleLabel = '👑 المضيف';
+                else if (idx === 1) roleLabel = '⚔️ لاعب ثانٍ';
+
+                const row = document.createElement('div');
+                row.className = 'mp-player-row';
+                row.innerHTML = `
+                    <span><strong>${p.name.substring(0,12)}</strong> (${roleLabel})</span>
+                    <span class="ready-badge ${p.ready ? 'ready-yes' : 'ready-no'}">${p.ready ? 'مستعد' : 'ينتظر'}</span>
+                `;
+                listEl.appendChild(row);
+            });
+        }
+
+        function updateMySymbolLabel() {
+            const el = id('my-symbol');
+            const idx = mpState.peersList.findIndex(p => p.id === mpState.myId);
+            if (idx === 0) { el.textContent = '👤 رمزك: X'; mpState.matchP1Id = mpState.myId; }
+            else if (idx === 1) { el.textContent = '👤 رمزك: O'; mpState.matchP2Id = mpState.myId; }
+            else { el.textContent = '👀 مشاهدة'; }
+        }
+
+        id('btn-ready-toggle').addEventListener('click', function() {
+            mpState.myReady = !mpState.myReady;
+            this.textContent = mpState.myReady ? '⏳ إلغاء الاستعداد' : '✋ أنا مستعد';
+            this.style.background = mpState.myReady ? '#e74c3c' : '#27ae60';
+
+            if (mpState.isHost) {
+                mpState.peersList[0].ready = mpState.myReady;
+                broadcastLobbyState();
+                hostAutoManageTournament();
+            } else {
+                const myConn = mpState.connections[mpState.hostId];
+                if (myConn && myConn.open) {
+                    myConn.send({ type: 'READY_TOGGLE', ready: mpState.myReady });
+                }
+            }
+        });
+
+        // إدارة تنظيم المباريات التلقائي المتقدم من كودك الأصلي
+        function hostAutoManageTournament() {
+            if (!mpState.isHost) return;
+            if (mpState.peersList.length < 2) return; 
+
+            const p1 = mpState.peersList[0];
+            const p2 = mpState.peersList[1];
+
+            if (p1.ready && p2.ready && !mpState.matchActive) {
+                hostStartMatch();
+            }
+        }
+
+        function hostStartMatch() {
+            mpState.currentMatchIdx++;
+            mpState.matchActive = true;
+            
+            p1Name = mpState.peersList[0].name;
+            p2Name = mpState.peersList[1].name;
+            mpState.matchP1Id = mpState.peersList[0].id;
+            mpState.matchP2Id = mpState.peersList[1].id;
+
+            mpState.matches.push({
+                p1Id: p1Name, p2Id: p2Name, winner: null
+            });
+
+            broadcast({
+                type: 'START_MATCH',
+                boardSize: BOARD_SIZE,
+                matches: mpState.matches,
+                currentMatchIdx: mpState.currentMatchIdx,
+                p1Name, p2Name, scoreX, scoreO
+            });
+
+            id('lobby').style.display = 'none';
+            startNewMatch();
+            updateNamesUI(); updateScoreUI(); updateMySymbolLabel();
+        }
+
+        function rebuildBoardFromState() {
+            const bEl = id('board'); bEl.innerHTML = '';
+            bEl.style.width = (BOARD_SIZE * 28) + 'px'; bEl.style.height = (BOARD_SIZE * 28) + 'px';
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.style.right = (c * 28) + 'px'; cell.style.top = (r * 28) + 'px';
+                    cell.dataset.r = r; cell.dataset.c = c;
+                    if (board[r][c] !== null) {
+                        cell.textContent = board[r][c];
+                        cell.classList.add(board[r][c].toLowerCase());
+                    }
+                    cell.addEventListener('click', () => handleCellClick(r, c));
+                    bEl.appendChild(cell);
+                }
+            }
+        }
+
+        // إرسال واستقبال الرسائل الفورية داخل الدردشة الأصلية
+        id('chat-input').addEventListener('submit', () => {
+            const txtEl = id('chat-txt');
+            const txt = txtEl.value.trim();
+            if (!txt) return;
+
+            appendChatMessage('أنت', txt, 'me');
+            broadcast({ type: 'CHAT', sender: `لاعب ${mpState.myId.substring(0,4)}`, text: txt });
+            txtEl.value = '';
+        });
+
+        function appendChatMessage(sender, text, style) {
+            const container = id('chat-msgs');
+            const el = document.createElement('div');
+            el.className = `msg ${style}`;
+            el.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            container.appendChild(el);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        id('chat-toggle').addEventListener('click', () => id('chat').classList.toggle('open'));
         if (window.innerWidth <= 768) id('chat-toggle').style.display = 'block';
         window.addEventListener('resize', () => {
             id('chat-toggle').style.display = window.innerWidth <= 768 ? 'block' : 'none';
@@ -2795,7 +837,7 @@
         renderBoard();
         updateScoreUI();
         updateTurnUI();
-        updateConnUI(false, 'غير متصل');
+        updateConnUI(false, 'غير متصل باللوبي');
         updateNamesUI();
     </script>
 </body>
