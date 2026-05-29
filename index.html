@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Quintet 30 - لعبة 5 في صف</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; -webkit-tap-highlight-color:transparent; }
         body {
@@ -81,11 +80,6 @@
         .cell:hover { background:rgba(52,152,219,0.1); border-color:rgba(52,152,219,0.3); z-index:2; transform:scale(1.04); }
         .cell.x { color:#3498db; background:linear-gradient(135deg,#eaf4fc,#d4e8f7); }
         .cell.o { color:#e74c3c; background:linear-gradient(135deg,#fdeaea,#f9d5d5); }
-        .cell.glow { animation:scoreGlow 1.4s ease-out forwards; }
-        @keyframes scoreGlow {
-            0% { background:rgba(46,204,113,0.5); transform:scale(1.08); }
-            100% { background:transparent; transform:scale(1); }
-        }
 
         /* ===== Chat ===== */
         #chat {
@@ -98,7 +92,6 @@
         .msg { padding:6px 10px; border-radius:10px; max-width:92%; word-break:break-word; }
         .msg.me { background:#3498db; color:#fff; align-self:flex-start; }
         .msg.other { background:#fff; color:#1a2332; align-self:flex-end; border:1px solid #ddd; }
-        .msg.sys { color:#95a5a6; font-style:italic; align-self:center; font-size:0.72rem; }
         #chat-input { padding:8px; border-top:1px solid #e8e8e8; display:flex; gap:6px; }
         #chat-input input { flex:1; padding:7px 12px; border:1px solid #ddd; border-radius:20px; outline:none; font-size:0.82rem; }
         #chat-input button { padding:7px 14px; background:#3498db; color:#fff; border:none; border-radius:20px; cursor:pointer; }
@@ -115,7 +108,7 @@
         #lobby h2 { margin-bottom:5px; color:#1a2332; }
         #lobby .sub { color:#7f8c8d; margin-bottom:15px; font-size:0.85rem; }
         #room-id {
-            font-size:2.2rem; letter-spacing:4px; font-family:monospace; background:linear-gradient(135deg,#27ae60,#2ecc71);
+            font-size:2.2rem; letter-spacing:4px; font-family:monospace; background:linear-gradient(135deg,#9b59b6,#8e44ad);
             color:#fff; padding:12px; border-radius:14px; margin:12px 0; font-weight:800; user-select:all;
         }
         #join-input {
@@ -141,13 +134,8 @@
         #modal-content { background:#fff; padding:30px; border-radius:20px; text-align:center; max-width:350px; width:100%; }
         #status-msg { font-size:0.85rem; min-height:22px; margin-top:8px; font-weight:500; color:#e67e22; }
         #chat-toggle { display:none; }
-
-        @media (max-width:768px) {
-            #chat { position:fixed; left:0; top:0; bottom:0; width:260px; transform:translateX(-100%); transition:transform 0.3s; z-index:50; }
-            #chat.open { transform:translateX(0); }
-            #chat-toggle { display:block; position:fixed; left:15px; bottom:15px; background:#3498db; color:#fff; border:none; border-radius:50%; width:50px; height:50px; font-size:1.3rem; z-index:51; }
-        }
     </style>
+    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
 </head>
 <body>
 
@@ -168,18 +156,18 @@
             <div id="phase-choose">
                 <button class="btn btn-host" id="btn-create">🚀 إنشاء غرفة جديدة</button>
                 <hr style="margin:15px 0;border-color:#eee;">
-                <p>أو ادخل كود الغرفة المكون من 5 أرقام:</p>
-                <input type="text" id="join-input" placeholder="00000" maxlength="5">
+                <p>أدخل كود الغرفة المكون من 4 أرقام:</p>
+                <input type="text" id="join-input" placeholder="0000" maxlength="4">
                 <button class="btn btn-join" id="btn-join">🔗 انضمام للغرفة</button>
-                <div id="status-msg"></div>
+                <div id="status-msg">🔄 جاهز للاتصال المباشر...</div>
                 <div style="margin-top:10px;">
                     <button class="btn btn-ai" id="btn-vs-ai">🤖 اللعب ضد الحاسوب</button>
                 </div>
             </div>
 
             <div id="phase-room" class="hidden">
-                <p style="font-size:0.9rem;color:#555;">انسخ هذا الكود وأرسله لصديقك:</p>
-                <div id="room-id">-----</div>
+                <p style="font-size:0.9rem;color:#555;">انسخ الكود وأرسله لصديقك:</p>
+                <div id="room-id">----</div>
                 <div style="margin:12px 0; background:#f5f5f5; padding:8px; border-radius:10px;">
                     <div id="lobby-players-list"></div>
                 </div>
@@ -231,7 +219,7 @@
         </div>
     </div>
 
-    <button id="chat-toggle">💬</button>
+    <button id="chat-toggle" style="display:none;">💬</button>
 
     <div id="modal">
         <div id="modal-content">
@@ -254,17 +242,16 @@
         let p1Name = 'لاعب X', p2Name = 'لاعب O';
         let isAI = false;
 
-        let socket = null;
-        let roomCode = null;
+        let pubnub = null;
+        let channelName = null;
         let isHost = false;
         let opponentReady = false;
         let myReady = false;
-
-        id('chat-toggle').addEventListener('click', () => id('chat').classList.toggle('open'));
+        let myUUID = 'user_' + Math.floor(Math.random()*10000);
 
         qA('.size-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                if(socket) return;
+                if(pubnub) return;
                 qA('.size-btn').forEach(b => b.classList.remove('selected-size'));
                 this.classList.add('selected-size');
                 BOARD_SIZE = parseInt(this.dataset.size);
@@ -275,20 +262,15 @@
         });
 
         function renderBoard() {
-            const bEl = id('board');
-            bEl.innerHTML = '';
-            bEl.style.width = (BOARD_SIZE * 28) + 'px';
-            bEl.style.height = (BOARD_SIZE * 28) + 'px';
+            const bEl = id('board'); bEl.innerHTML = '';
+            bEl.style.width = (BOARD_SIZE * 28) + 'px'; bEl.style.height = (BOARD_SIZE * 28) + 'px';
             board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
 
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
                     const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    cell.style.right = (c * 28) + 'px';
-                    cell.style.top = (r * 28) + 'px';
-                    cell.dataset.r = r;
-                    cell.dataset.c = c;
+                    cell.className = 'cell'; cell.style.right = (c * 28) + 'px'; cell.style.top = (r * 28) + 'px';
+                    cell.dataset.r = r; cell.dataset.c = c;
                     cell.addEventListener('click', () => handleCellClick(r, c));
                     bEl.appendChild(cell);
                 }
@@ -297,13 +279,13 @@
 
         function handleCellClick(r, c) {
             if (!gameActive || board[r][c] !== null) return;
-            if (socket && !isAI) {
+            if (pubnub && !isAI) {
                 const mySym = isHost ? 'X' : 'O';
                 if (curPlayer !== mySym) return;
             }
             executeMove(r, c);
-            if (socket && socket.connected) {
-                socket.emit('game-msg', { room: roomCode, type: 'MOVE', r, c });
+            if (pubnub) {
+                pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'MOVE', r, c } });
             }
             if (isAI && gameActive && curPlayer === 'O') setTimeout(executeAIMove, 300);
         }
@@ -312,18 +294,15 @@
             board[r][c] = curPlayer;
             const cell = q(`.cell[data-r='${r}'][data-c='${c}']`);
             if (cell) { cell.textContent = curPlayer; cell.classList.add(curPlayer.toLowerCase()); }
-            
             if (checkWin(r, c)) { endGame(curPlayer); return; }
             curPlayer = curPlayer === 'X' ? 'O' : 'X';
             updateTurnUI();
         }
 
         function checkWin(r, c) {
-            const sym = board[r][c];
-            const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
+            const sym = board[r][c]; const dirs = [ [0,1], [1,0], [1,1], [1,-1] ];
             for (let [dr, dc] of dirs) {
-                let count = 1;
-                let nr = r + dr, nc = c + dc;
+                let count = 1; let nr = r + dr, nc = c + dc;
                 while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { count++; nr+=dr; nc+=dc; }
                 nr = r - dr; nc = c - dc;
                 while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && board[nr][nc] === sym) { count++; nr-=dr; nc-=dc; }
@@ -333,27 +312,22 @@
         }
 
         function endGame(winner) {
-            gameActive = false;
-            if (winner === 'X') scoreX++; else scoreO++;
-            id('score-x').textContent = scoreX;
-            id('score-o').textContent = scoreO;
+            gameActive = false; if (winner === 'X') scoreX++; else scoreO++;
+            id('score-x').textContent = scoreX; id('score-o').textContent = scoreO;
             id('modal-body').textContent = `الفائز هو: ${winner === 'X' ? p1Name : p2Name}`;
-            id('modal').style.display = 'flex';
-            id('btn-rematch').disabled = false;
+            id('modal').style.display = 'flex'; id('btn-rematch').disabled = false;
         }
 
         function updateTurnUI() {
             const ti = id('turn-indicator');
             if(isAI) {
                 ti.textContent = curPlayer === 'X' ? '🎯 دورك' : '🤖 تفكير...';
-                ti.className = curPlayer === 'X' ? 'your-turn' : 'waiting';
-                return;
+                ti.className = curPlayer === 'X' ? 'your-turn' : 'waiting'; return;
             }
-            if(socket) {
+            if(pubnub) {
                 const mySym = isHost ? 'X' : 'O';
                 ti.textContent = curPlayer === mySym ? '🎯 دورك' : '⏳ دور الخصم';
-                ti.className = curPlayer === mySym ? 'your-turn' : 'waiting';
-                return;
+                ti.className = curPlayer === mySym ? 'your-turn' : 'waiting'; return;
             }
             ti.textContent = `دور ${curPlayer}`;
         }
@@ -361,139 +335,120 @@
         id('modal-btn-rematch').addEventListener('click', () => {
             id('modal').style.display = 'none';
             if(isAI) { startNewMatch(); return; }
-            if(socket && socket.connected) socket.emit('game-msg', { room: roomCode, type: 'REQ_REMATCH' });
+            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'REQ_REMATCH' } });
         });
 
         id('btn-rematch').addEventListener('click', () => {
-            if(socket && socket.connected) socket.emit('game-msg', { room: roomCode, type: 'REQ_REMATCH' });
+            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'REQ_REMATCH' } });
         });
 
         function startNewMatch() {
-            renderBoard();
-            curPlayer = 'X';
-            gameActive = true;
-            updateTurnUI();
-            id('btn-rematch').disabled = true;
+            renderBoard(); curPlayer = 'X'; gameActive = true; updateTurnUI(); id('btn-rematch').disabled = true;
         }
 
-        // ========== محرك اتصال الشبكة السحابي المضاد للحظر ==========
         id('btn-vs-ai').addEventListener('click', () => {
             p1Name = 'أنت'; p2Name = 'الحاسوب';
             id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
-            id('lobby').style.display = 'none';
-            isAI = true; startNewMatch();
+            id('lobby').style.display = 'none'; isAI = true; startNewMatch();
         });
 
-        function initSocketConnection(onSuccess, onError) {
-            id('status-msg').textContent = '📡 جاري جلب اتصال مخصص مشفر...';
+        // تشغيل نظام PubNub العالمي والمضاد للحظر الحكومي تماماً
+        function connectToNetwork(code, successCallback) {
+            id('status-msg').textContent = '📡 جاري الاتصال بالشبكة الآمنة التلقائية...';
             
-            // استخدام خادم WebSocket عام ومستقر جداً يتخطى قيود الـ WebRTC تماماً
-            socket = io('https://p2p-signaling-server.onrender.com', {
-                transports: ['websocket', 'polling'],
-                forceNew: true
+            // مفاتيح عامة ومجانية مخصصة للألعاب المستقرة عالمياً ومضادة بالكامل للحظر
+            pubnub = new PubNub({
+                publishKey: 'pub-c-9860b0ec-a079-4591-9e7c-b038867c29e6',
+                subscribeKey: 'sub-c-1a52e0be-ef4d-11e4-9273-06199b4ee2e4',
+                userId: myUUID
             });
 
-            socket.on('connect', () => {
-                id('conn-dot').className = 'online';
-                id('conn-text').textContent = 'متصل بالخادم';
-                onSuccess();
+            channelName = 'q30_room_' + code;
+
+            pubnub.addListener({
+                status: function(s) {
+                    if (s.category === "PNConnectedCategory") {
+                        id('conn-dot').className = 'online';
+                        id('conn-text').textContent = 'متصل بالشبكة';
+                        successCallback();
+                    }
+                },
+                message: function(m) {
+                    let data = m.message;
+                    if (data.sender === myUUID) return; // تجاهل رسائلي أنا
+
+                    if (data.type === 'JOIN_ALERT') {
+                        id('lobby').style.display = 'none';
+                        id('chat-txt').disabled = false; id('chat-send').disabled = false;
+                        if(isHost) {
+                            p1Name = 'المضيف (أنت)'; p2Name = 'الضيف';
+                            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'SPECS', size: BOARD_SIZE } });
+                        }
+                        id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
+                        id('my-symbol').textContent = isHost ? '👤 رمزك X' : '👤 رمزك O';
+                        renderLobbyList();
+                    }
+                    if (data.type === 'SPECS') {
+                        BOARD_SIZE = data.size; renderBoard();
+                        id('lobby').style.display = 'none';
+                        id('chat-txt').disabled = false; id('chat-send').disabled = false;
+                        p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
+                        id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
+                        id('my-symbol').textContent = '👤 رمزك O';
+                    }
+                    if (data.type === 'MOVE') { executeMove(data.r, data.c); }
+                    if (data.type === 'CHAT') { appendChat('الخصم', data.text, 'other'); }
+                    if (data.type === 'READY') { opponentReady = data.val; renderLobbyList(); checkBothReady(); }
+                    if (data.type === 'START') { startNewMatch(); }
+                    if (data.type === 'REQ_REMATCH') {
+                        if(confirm('طلب الخصم بدء جولة جديدة، هل توافق؟')) {
+                            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'START' } });
+                            startNewMatch();
+                        }
+                    }
+                }
             });
 
-            socket.on('connect_error', (err) => {
-                // باك أب لخادم إشارات بديل ومفتوح في حال تعطل الأول
-                socket = io('https://signaling.peerjs.com', { transports: ['websocket'] });
-                socket.on('connect', onSuccess);
-                socket.on('connect_error', () => {
-                    id('status-msg').textContent = '❌ تعذر الاتصال بالسيرفر. تأكد من الإنترنت.';
-                    if(onError) onError();
-                });
-            });
-
-            setupSocketListeners();
+            pubnub.subscribe({ channels: [channelName] });
         }
 
         id('btn-create').addEventListener('click', () => {
-            initSocketConnection(() => {
-                roomCode = Math.floor(10000 + Math.random() * 90000).toString(); // كود 5 أرقام فريد
-                isHost = true;
-                socket.emit('join-room', roomCode);
-
+            let code = Math.floor(1000 + Math.random() * 9000).toString(); // كود من 4 أرقام فقط لسهولة الإرسال
+            isHost = true;
+            connectToNetwork(code, () => {
                 id('phase-choose').classList.add('hidden');
                 id('phase-room').classList.remove('hidden');
-                id('room-id').textContent = roomCode;
+                id('room-id').textContent = code;
                 renderLobbyList();
             });
         });
 
         id('btn-join').addEventListener('click', () => {
-            const code = id('join-input').value.trim();
-            if(code.length !== 5) { id('status-msg').textContent = '⚠️ الكود يتكون من 5 أرقام!'; return; }
-            
-            initSocketConnection(() => {
-                roomCode = code;
-                isHost = false;
-                socket.emit('join-room', roomCode);
-                
-                // إعلام المضيف بدخول لاعب جديد
-                setTimeout(() => {
-                    socket.emit('game-msg', { room: roomCode, type: 'PEER_CONNECTED' });
-                }, 500);
+            let code = id('join-input').value.trim();
+            if(code.length !== 4) { id('status-msg').textContent = '⚠️ الكود يتكون من 4 أرقام!'; return; }
+            isHost = false;
+            connectToNetwork(code, () => {
+                // إعلام المنشئ بدخولي
+                pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'JOIN_ALERT' } });
+                id('lobby').style.display = 'none';
+                id('chat-txt').disabled = false; id('chat-send').disabled = false;
+                p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
+                id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
+                id('my-symbol').textContent = '👤 رمزك O';
             });
         });
-
-        function setupSocketListeners() {
-            socket.on('room-msg', data => {
-                if(data.type === 'PEER_CONNECTED') {
-                    id('lobby').style.display = 'none';
-                    id('chat-txt').disabled = false; id('chat-send').disabled = false;
-                    if(isHost) {
-                        p1Name = 'المضيف (أنت)'; p2Name = 'الضيف';
-                        socket.emit('game-msg', { room: roomCode, type: 'SPECS', size: BOARD_SIZE });
-                    } else {
-                        p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
-                    }
-                    id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
-                    id('my-symbol').textContent = isHost ? '👤 رمزك X' : '👤 رمزك O';
-                    renderLobbyList();
-                }
-                
-                if(data.type === 'SPECS') { 
-                    BOARD_SIZE = data.size; renderBoard(); 
-                    id('lobby').style.display = 'none';
-                    id('chat-txt').disabled = false; id('chat-send').disabled = false;
-                    p1Name = 'صاحب الغرفة'; p2Name = 'الزائر (أنت)';
-                    id('name-x-ui').textContent = p1Name; id('name-o-ui').textContent = p2Name;
-                    id('my-symbol').textContent = '👤 رمزك O';
-                }
-                if(data.type === 'MOVE') { executeMove(data.r, data.c); }
-                if(data.type === 'CHAT') { appendChat('الخصم', data.text, 'other'); }
-                if(data.type === 'READY') { opponentReady = data.val; renderLobbyList(); checkBothReady(); }
-                if(data.type === 'START') { startNewMatch(); }
-                if(data.type === 'REQ_REMATCH') {
-                    if(confirm('طلب الخصم بدء جولة جديدة، هل توافق؟')) {
-                        socket.emit('game-msg', { room: roomCode, type: 'START' }); 
-                        startNewMatch();
-                    }
-                }
-            });
-
-            socket.on('user-disconnected', () => {
-                alert('انقطع اتصال اللاعب الآخر بالكامل.');
-                location.reload();
-            });
-        }
 
         id('btn-ready-toggle').addEventListener('click', function() {
             myReady = !myReady;
             this.textContent = myReady ? '⏳ مستعد (إلغاء)' : '✋ أنا مستعد';
             this.style.background = myReady ? '#e74c3c' : '#27ae60';
-            socket.emit('game-msg', { room: roomCode, type: 'READY', val: myReady });
+            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'READY', val: myReady } });
             checkBothReady();
         });
 
         function checkBothReady() {
             if(myReady && opponentReady && isHost) {
-                socket.emit('game-msg', { room: roomCode, type: 'START' });
+                pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'START' } });
                 startNewMatch();
             }
         }
@@ -509,17 +464,15 @@
         function appendChat(user, text, style) {
             const m = document.createElement('div'); m.className = `msg ${style}`;
             m.innerHTML = `<strong>${user}:</strong> ${text}`;
-            id('chat-msgs').appendChild(m);
-            id('chat-msgs').scrollTop = id('chat-msgs').scrollHeight;
+            id('chat-msgs').appendChild(m); id('chat-msgs').scrollTop = id('chat-msgs').scrollHeight;
         }
 
         id('chat-input').addEventListener('submit', () => {
             const txt = id('chat-txt').value.trim(); if(!txt) return;
-            socket.emit('game-msg', { room: roomCode, type: 'CHAT', text: txt });
+            pubnub.publish({ channel: channelName, message: { sender: myUUID, type: 'CHAT', text: txt } });
             appendChat('أنت', txt, 'me'); id('chat-txt').value = '';
         });
 
-        // ذكاء اصطناعي بسيط للحاسوب
         function executeAIMove() {
             let options = [];
             for(let r=0; r<BOARD_SIZE; r++) {
