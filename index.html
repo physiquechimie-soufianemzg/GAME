@@ -249,6 +249,14 @@
         .btn-start:disabled { background:linear-gradient(135deg,var(--text-muted),#475569); cursor:not-allowed; transform:none; box-shadow:none; }
         .btn-leave { background:linear-gradient(135deg,var(--accent-red),#dc2626); color:#fff; box-shadow:0 4px 15px rgba(239,68,68,0.3); }
         .btn-leave:hover { box-shadow:0 6px 20px rgba(239,68,68,0.4); }
+        #btn-leave-ingame { transition:all 0.25s; }
+        #btn-leave-ingame:not(:disabled):hover { box-shadow:0 4px 15px rgba(239,68,68,0.4); transform:translateY(-1px); }
+        #btn-leave-ingame:not(:disabled) { animation:leavePulse 2s ease-in-out infinite; }
+        @keyframes leavePulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.3)} 50%{box-shadow:0 0 12px 2px rgba(239,68,68,0.2)} }
+        #emoji-picker::-webkit-scrollbar { width:4px; }
+        #emoji-picker::-webkit-scrollbar-thumb { background:var(--text-muted); border-radius:4px; }
+        #c-emoji { flex-shrink:0; }
+        #c-emoji:hover { background:rgba(59,130,246,0.1) !important; }
         .hidden { display:none !important; }
 
         /* Size buttons */
@@ -641,6 +649,9 @@
         <div class="ctrl-group">
             <button id="btn-surrender" style="background:linear-gradient(135deg,var(--accent-red),#dc2626);color:#fff;border-color:transparent;">🏳️ انسحاب</button>
         </div>
+        <div class="ctrl-group">
+            <button id="btn-leave-ingame" style="background:linear-gradient(135deg,var(--accent-red),#dc2626);color:#fff;border-color:transparent;opacity:0.4;cursor:not-allowed;" disabled>🚪 مغادرة اللعبة</button>
+        </div>
     </div>
 
     <div id="invite-banner">🎮 تم الاتصال! هيا نلعب</div>
@@ -652,8 +663,12 @@
             <div id="chat-head"><span>💬 الدردشة</span><span class="chatter" id="chat-status"></span></div>
             <div id="chat-msgs"></div>
             <div id="chat-input">
+                <button id="c-emoji" type="button" style="padding:7px 10px;background:none;border:1px solid var(--border-color);border-radius:20px;cursor:pointer;font-size:1.1rem;line-height:1;transition:0.15s;">😊</button>
                 <input type="text" id="c-txt" placeholder="رسالة..." maxlength="120" disabled>
                 <button id="c-send" disabled>➤</button>
+            </div>
+            <div id="emoji-picker" style="display:none;padding:6px 8px;background:var(--bg-primary);border-top:1px solid var(--border-color);max-height:160px;overflow-y:auto;flex-shrink:0;">
+                <div id="emoji-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;text-align:center;"></div>
             </div>
         </div>
     </div>
@@ -868,7 +883,7 @@
             if (allUsed || moves >= gridSize * gridSize) {
                 gameOver = true; showEnd();
                 if (conn && conn.open && gameMode !== 'mp' && gameMode !== 'ai') conn.send({type:'game_end',scores:{...scores},winner:scores.X>scores.O?'X':scores.O>scores.X?'O':'draw',used:used});
-                updateTurnUI(); return true;
+                updateTurnUI(); updateLeaveBtn(); return true;
             }
             curPlayer = curPlayer === 'X' ? 'O' : 'X';
             updateTurnUI();
@@ -886,8 +901,8 @@
             if (p === 'X') scores.O += goals; else scores.X += goals;
             gameOver = true;
             updateScoreUI(); syncBoardUI();
-            if (gameMode === 'mp') return;
-            showEnd(); updateTurnUI();
+            if (gameMode === 'mp') { updateLeaveBtn(); return; }
+            showEnd(); updateTurnUI(); updateLeaveBtn();
         }
 
         function findAllWins(r, c, p) {
@@ -966,6 +981,7 @@
             used = Array.from({length:gridSize},()=>Array(gridSize).fill(false));
             curPlayer = 'X'; scores = {X:0,O:0}; moves = 0; gameOver = false;
             rematchRequested = false; opponentRematchRequested = false;
+            if (typeof updateLeaveBtn === 'function') updateLeaveBtn();
             document.querySelectorAll('.glow').forEach(e => e.classList.remove('glow'));
             for (const svg of winLines) svg.remove();
             winLines = [];
@@ -1143,6 +1159,64 @@
         };
         id('chat-toggle').onclick = () => id('chat').classList.toggle('open');
 
+        // Leave game button in control bar - only active when game is over
+        id('btn-leave-ingame').onclick = () => {
+            if (!gameOver) return; // Only works when game has ended
+            try {
+                if (conn && conn.open) conn.send({type:'leave'});
+                if (mpNftyConn && mpNftyConn.open && mpState.myId) {
+                    mpNftyConn.send({type:'mp_leave', mpPid: mpState.myId});
+                }
+            } catch(e) {}
+            if (conn) { conn.close(); conn = null; }
+            if (mpNftyConn) { mpNftyConn.close(); mpNftyConn = null; }
+            location.reload();
+        };
+
+        // Function to update leave button state
+        function updateLeaveBtn() {
+            const btn = id('btn-leave-ingame');
+            if (gameOver) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            } else {
+                btn.disabled = true;
+                btn.style.opacity = '0.4';
+                btn.style.cursor = 'not-allowed';
+            }
+        }
+
+        // Emoji picker
+        const EMOJIS = ['😊','😂','🤣','😍','🥰','😎','🤩','😜','🤔','😏','😱','😢','😡','👍','👎','👏','🙌','💪','🤝','✌️','🤞','👋','🎉','🏆','🎯','🔥','❤️','💙','💚','💛','💜','🖤','💔','⭐','✨','🌟','💯','棋牌','🎲','🃏','🎮','🕹️','😄','😁','😆','🥳','😇','🤗','🫡','😴','🤯','😬','🫣','🤭','🫢','😈','👻','💀','🤖','👽','🎃'];
+        const emojiGrid = id('emoji-grid');
+        EMOJIS.forEach(e => {
+            const btn = document.createElement('span');
+            btn.textContent = e;
+            btn.style.cssText = 'cursor:pointer;font-size:1.3rem;padding:2px;border-radius:6px;transition:0.1s;display:flex;align-items:center;justify-content:center;';
+            btn.onmouseenter = () => btn.style.background = 'rgba(59,130,246,0.15)';
+            btn.onmouseleave = () => btn.style.background = '';
+            btn.onclick = () => {
+                const inp = id('c-txt');
+                if (!inp.disabled) {
+                    inp.value += e;
+                    inp.focus();
+                }
+                id('emoji-picker').style.display = 'none';
+            };
+            emojiGrid.appendChild(btn);
+        });
+        id('c-emoji').onclick = () => {
+            const picker = id('emoji-picker');
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        };
+        // Close emoji picker when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#emoji-picker') && e.target.id !== 'c-emoji') {
+                id('emoji-picker').style.display = 'none';
+            }
+        });
+
         // Surrender button
         id('btn-surrender').onclick = () => {
             if (gameOver) return;
@@ -1279,7 +1353,7 @@
                     }
                     syncBoardUI(); updateScoreUI(); updateTurnUI();
                     if (used.flat().every(v => v) || moves >= gridSize*gridSize) {
-                        gameOver = true; showEnd(); updateTurnUI();
+                        gameOver = true; showEnd(); updateTurnUI(); updateLeaveBtn();
                     }
                     break;
                 case 'chat':
@@ -1287,12 +1361,12 @@
                     break;
                 case 'game_end':
                     scores = data.scores; if (data.used) used = data.used;
-                    gameOver = true; updateScoreUI(); syncBoardUI(); showEnd(); updateTurnUI();
+                    gameOver = true; updateScoreUI(); syncBoardUI(); showEnd(); updateTurnUI(); updateLeaveBtn();
                     updateConnUI(true, 'متصل');
                     break;
                 case 'surrender':
                     scores = data.scores || scores;
-                    gameOver = true; updateScoreUI(); syncBoardUI(); showEnd(); updateTurnUI();
+                    gameOver = true; updateScoreUI(); syncBoardUI(); showEnd(); updateTurnUI(); updateLeaveBtn();
                     addMsg('sys', `🏳️ ${getPlayerName(data.p === 'X' ? 'O' : 'X') || 'الخصم'} انسحب!`);
                     break;
                 case 'rematch_req':
@@ -1343,6 +1417,7 @@
             id('turn-indicator').className = 'ended';
             if (gameOver) return;
             gameOver = true;
+            updateLeaveBtn();
             const phase = !nameConfirmed || !opponentNameConfirmed ? 'lobby' : 'game';
             if (phase === 'game') {
                 showDisconnectModal(`${opp} غادر المباراة`);
@@ -2558,7 +2633,7 @@
         function mpApplyMove(data) {
             if (data.surrender) {
                 if (data.scores) scores = {...data.scores};
-                gameOver = true; syncBoardUI(); updateScoreUI(); updateTurnUI();
+                gameOver = true; syncBoardUI(); updateScoreUI(); updateTurnUI(); updateLeaveBtn();
                 id('mp-match-area').classList.add('hidden');
                 mpShowNotification('🏳️ أحد اللاعبين انسحب!', 'info');
                 return;
@@ -2578,13 +2653,13 @@
             }
             syncBoardUI(); updateScoreUI(); updateTurnUI();
             const allUsed = used.flat().every(v => v);
-            if (allUsed || moves >= gridSize * gridSize) { gameOver = true; }
+            if (allUsed || moves >= gridSize * gridSize) { gameOver = true; updateLeaveBtn(); }
         }
 
         function mpCheckMatchEnd() {
             const allUsed = used.flat().every(v => v);
             if (allUsed || moves >= gridSize * gridSize) {
-                gameOver = true;
+                gameOver = true; updateLeaveBtn();
                 const winner = scores.X > scores.O ? 'X' : scores.O > scores.X ? 'O' : null;
                 mpEndMatch(scores, winner);
             }
