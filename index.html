@@ -113,6 +113,8 @@
             font-size:17px; font-weight:700; transition:all 0.12s ease;
             cursor:pointer; user-select:none; background:rgba(30,41,59,0.6); z-index:1;
             box-shadow:inset 0 1px 2px rgba(0,0,0,0.1);
+            touch-action:manipulation;
+            -webkit-tap-highlight-color:rgba(59,130,246,0.2);
         }
         .cell::before {
             content:''; position:absolute; inset:0;
@@ -917,6 +919,9 @@
             }
         }
 
+        // Track touch to prevent double-firing (touchend + click)
+        let _touchFired = false;
+
         function renderBoard() {
             boardEl.innerHTML = '';
             boardEl.style.width = `${gridSize * CELL}px`;
@@ -928,9 +933,19 @@
                     el.dataset.r = r; el.dataset.c = c;
                     el.style.right = `${c * CELL}px`;
                     el.style.top = `${r * CELL}px`;
-                    el.onclick = () => onCellClick(r, c);
-                    // Touch support for mobile
-                    el.ontouchend = (e) => { e.preventDefault(); onCellClick(r, c); };
+                    // Touch handler for mobile - fires immediately without 300ms delay
+                    el.addEventListener('touchend', (e) => {
+                        e.preventDefault(); // Prevent click from also firing
+                        e.stopPropagation();
+                        _touchFired = true;
+                        setTimeout(() => { _touchFired = false; }, 400);
+                        onCellClick(r, c);
+                    }, { passive: false });
+                    // Click handler for desktop (and as fallback)
+                    el.onclick = () => {
+                        if (_touchFired) return; // Already handled by touchend
+                        onCellClick(r, c);
+                    };
                     boardEl.appendChild(el);
                 }
             }
@@ -954,18 +969,26 @@
             id('used-count').textContent = used.flat().filter(Boolean).length;
         }
 
+        let _lastNoConnMsg = 0;
         function onCellClick(r, c) {
             if (gameOver) return;
             if (gameMode === 'mp') { mpOnCellClick(r, c); return; }
-            if (board[r][c] !== null) return;
-            if (used[r][c]) return;
+            if (board[r][c] !== null || used[r][c]) return;
             if (gameMode === 'ai') {
                 if (curPlayer !== mySym) return;
                 doMove(r, c, mySym);
                 if (!gameOver && gameMode === 'ai') setTimeout(aiMove, 400);
                 return;
             }
-            if (!conn || !conn.open) return;
+            // 1v1 mode
+            if (!conn || !conn.open) {
+                const now = Date.now();
+                if (now - _lastNoConnMsg > 3000) {
+                    addMsg('sys', '⚠️ لا يوجد اتصال بالخصم');
+                    _lastNoConnMsg = now;
+                }
+                return;
+            }
             if (curPlayer !== mySym) return;
             doMove(r, c, mySym);
         }
@@ -1193,6 +1216,8 @@
             mySym = 'X'; opponentName = 'الكمبيوتر';
             id('lobby').classList.add('hidden');
             gameMode = 'ai';
+            initGameState();
+            renderBoard();
             id('pn-x').textContent = myName;
             id('pn-o').textContent = opponentName;
             id('pn-score-x').textContent = myName;
@@ -1365,19 +1390,14 @@
         });
 
         // ========== Voice Call System (WebRTC + ntfy.sh signaling) ==========
-        // Uses "Complete ICE Gathering" approach: wait for all ICE candidates
-        // before sending SDP. This avoids timing issues with trickle ICE over ntfy.sh.
+        // Uses Trickle ICE: send SDP without candidates first, then
+        // send each ICE candidate individually. This ensures all messages
+        // fit within ntfy.sh's 4KB limit.
         const ICE_SERVERS = [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            // Metered TURN servers (free tier, reliable)
-            { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65b92f7b828b1d79d0ee', credential: 'd5clVqVCnXW9EQjl' },
-            { urls: 'turn:a.relay.metered.ca:443', username: 'e8dd65b92f7b828b1d79d0ee', credential: 'd5clVqVCnXW9EQjl' },
-            { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'e8dd65b92f7b828b1d79d0ee', credential: 'd5clVqVCnXW9EQjl' },
-            // Fallback: Open Relay Project
+            // Metered TURN relay for NAT traversal (free tier)
             { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
             { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
             { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
@@ -1389,8 +1409,16 @@
         let callTimerInterval = null;
         let callStartTime = 0;
         let isMuted = false;
-        let pendingIceCandidates = []; // Buffer for ICE candidates received before PC is ready
-        let sdpChunks = {}; // Buffer for reassembling SDP chunks {msgId: {sdpType, chunks: [], totalChunks}}
+        let _pendingIceCandidates = []; // ICE candidates received before remote description is set
+
+        // Strip ICE candidate lines from SDP to reduce size
+        function stripSdpCandidates(sdpStr) {
+            if (!sdpStr || !sdpStr.sdp) return sdpStr;
+            const cleaned = sdpStr.sdp.split('\n')
+                .filter(line => !line.startsWith('a=candidate'))
+                .join('\n');
+            return { type: sdpStr.type, sdp: cleaned };
+        }
 
         function sendCallSignal(data) {
             if (conn && conn.open) {
@@ -1400,16 +1428,6 @@
             }
         }
 
-        // Strip candidate lines from SDP to reduce size for ntfy.sh (we use trickle ICE instead)
-        function stripSdpCandidates(sdp) {
-            if (!sdp || !sdp.sdp) return sdp;
-            // Remove a=candidate lines and a=end-of-candidates from SDP
-            const stripped = sdp.sdp.replace(/a=candidate:.*\r?\n/g, '').replace(/a=end-of-candidates\r?\n/g, '');
-            return { type: sdp.type, sdp: stripped };
-        }
-
-        // Trickle ICE: send ICE candidates as they are discovered (small messages)
-        // This avoids ntfy.sh message size limits (full SDP+candidates can be 4-6KB)
         async function startVoiceCall() {
             if (callState !== 'idle') return;
             if (gameMode === 'ai') { addMsg('sys', '⚠️ لا يمكن الاتصال بالكمبيوتر'); return; }
@@ -1428,10 +1446,11 @@
                 const offer = await voicePC.createOffer();
                 await voicePC.setLocalDescription(offer);
 
-                // Send the offer SDP immediately (stripped of candidates to reduce size)
-                // ICE candidates will be sent separately via trickle ICE
-                addMsg('sys', '📡 تم إرسال طلب الاتصال...');
-                sendCallSignal({ type: 'offer', sdp: stripSdpCandidates(voicePC.localDescription) });
+                // Send SDP immediately WITHOUT candidates (trickle ICE)
+                // This keeps the message small enough for ntfy.sh
+                const strippedOffer = stripSdpCandidates(voicePC.localDescription);
+                sendCallSignal({ type: 'offer', sdp: strippedOffer });
+                addMsg('sys', '📡 تم إرسال طلب الاتصال، جاري تجميع المسارات...');
             } catch (e) {
                 console.error('Voice call error:', e);
                 addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
@@ -1440,7 +1459,7 @@
         }
 
         function setupPeerConnection() {
-            // Trickle ICE: send each ICE candidate as it's discovered
+            // Trickle ICE: send each candidate as it's discovered
             voicePC.onicecandidate = (event) => {
                 if (event.candidate) {
                     sendCallSignal({ type: 'ice_candidate', candidate: event.candidate.toJSON() });
@@ -1459,12 +1478,10 @@
                     document.body.appendChild(audioEl);
                 }
                 audioEl.srcObject = remoteStream;
-                // Force play (browsers require user interaction)
                 audioEl.play().then(() => {
                     console.log('Remote audio playing successfully');
                 }).catch(e => {
                     console.warn('Audio play failed, retrying:', e);
-                    // Retry with a small delay
                     setTimeout(() => audioEl.play().catch(() => {}), 500);
                 });
             };
@@ -1482,7 +1499,6 @@
                         addMsg('sys', '✅ تم الاتصال صوتياً');
                     }
                 } else if (state === 'disconnected') {
-                    // Brief disconnect, try ICE restart after 3 seconds
                     addMsg('sys', '⚠️ انقطاع مؤقت في الاتصال الصوتي...');
                     setTimeout(() => {
                         if (voicePC && voicePC.iceConnectionState === 'disconnected') {
@@ -1490,21 +1506,9 @@
                         }
                     }, 3000);
                 } else if (state === 'failed') {
-                    if (callState === 'connected' || callState === 'calling' || callState === 'ringing') {
-                        addMsg('sys', '📞 فشل الاتصال الصوتي - جاري إعادة المحاولة...');
-                        // Try ICE restart once before giving up
-                        try { voicePC.restartIce(); } catch(e) {
-                            addMsg('sys', '❌ تعذر تأسيس الاتصال الصوتي');
-                            resetCall();
-                        }
-                        // If still failed after 5s, give up
-                        setTimeout(() => {
-                            if (voicePC && (voicePC.iceConnectionState === 'failed' || voicePC.iceConnectionState === 'closed')) {
-                                addMsg('sys', '❌ تعذر تأسيس الاتصال الصوتي');
-                                resetCall();
-                            }
-                        }, 5000);
-                    }
+                    addMsg('sys', '❌ فشل الاتصال الصوتي - قد يكون بسبب قيود الشبكة');
+                    addMsg('sys', '💡 تأكد من السماح بالوصول للميكروفون وأن الشبكة تسمح باتصالات WebRTC');
+                    resetCall();
                 } else if (state === 'closed') {
                     if (callState !== 'idle') {
                         addMsg('sys', '📞 تم إغلاق الاتصال');
@@ -1512,6 +1516,18 @@
                     }
                 }
             };
+        }
+
+        // Add pending ICE candidates after remote description is set
+        async function flushPendingIceCandidates() {
+            while (_pendingIceCandidates.length > 0) {
+                const cand = _pendingIceCandidates.shift();
+                try {
+                    await voicePC.addIceCandidate(new RTCIceCandidate(cand));
+                } catch (e) {
+                    console.warn('Add ICE candidate error:', e);
+                }
+            }
         }
 
         async function handleVoiceSignal(data) {
@@ -1535,6 +1551,8 @@
                     try {
                         await voicePC.setRemoteDescription(new RTCSessionDescription(signal.sdp));
                         addMsg('sys', '📡 تم استلام رد الاتصال...');
+                        // Add any ICE candidates that arrived before the answer
+                        await flushPendingIceCandidates();
                     } catch (e) {
                         console.error('Set remote description error:', e);
                         addMsg('sys', '❌ فشل في الاتصال الصوتي');
@@ -1543,57 +1561,16 @@
                 }
             }
             else if (signal.type === 'ice_candidate') {
-                // Add remote ICE candidate (trickle ICE)
+                // Trickle ICE: add candidate as it arrives
                 if (voicePC && voicePC.remoteDescription) {
                     try {
                         await voicePC.addIceCandidate(new RTCIceCandidate(signal.candidate));
                     } catch (e) {
-                        console.warn('Failed to add ICE candidate:', e);
+                        console.warn('Add ICE candidate error:', e);
                     }
                 } else {
-                    // Buffer candidates until peer connection is ready
-                    pendingIceCandidates.push(signal.candidate);
-                }
-            }
-            else if (signal.type === 'sdp_chunk') {
-                // Reassemble chunked SDP messages (for messages too large for ntfy.sh)
-                const {msgId, chunkIndex, totalChunks, sdpType, chunk} = signal;
-                if (!sdpChunks[msgId]) {
-                    sdpChunks[msgId] = {sdpType, chunks: new Array(totalChunks).fill(null), received: 0, totalChunks};
-                }
-                const buf = sdpChunks[msgId];
-                if (buf.chunks[chunkIndex] === null) {
-                    buf.chunks[chunkIndex] = chunk;
-                    buf.received++;
-                }
-                // If all chunks received, reassemble and process as offer/answer
-                if (buf.received === buf.totalChunks) {
-                    const fullSdp = buf.chunks.join('');
-                    const sdpObj = {type: sdpType, sdp: fullSdp};
-                    delete sdpChunks[msgId];
-                    // Process as offer or answer
-                    if (sdpType === 'offer') {
-                        if (callState !== 'idle') {
-                            sendCallSignal({ type: 'reject', reason: 'busy' });
-                            return;
-                        }
-                        callState = 'ringing';
-                        updateCallUI();
-                        id('caller-name').textContent = opponentName || 'الخصم';
-                        id('incoming-call-overlay').classList.add('show');
-                        window._pendingOffer = sdpObj;
-                    } else if (sdpType === 'answer') {
-                        if (voicePC && voicePC.signalingState === 'have-local-offer') {
-                            try {
-                                await voicePC.setRemoteDescription(new RTCSessionDescription(sdpObj));
-                                addMsg('sys', '📡 تم استلام رد الاتصال...');
-                            } catch (e) {
-                                console.error('Set remote description error:', e);
-                                addMsg('sys', '❌ فشل في الاتصال الصوتي');
-                                resetCall();
-                            }
-                        }
-                    }
+                    // Buffer candidates until remote description is set
+                    _pendingIceCandidates.push(signal.candidate);
                 }
             }
             else if (signal.type === 'reject') {
@@ -1614,22 +1591,19 @@
                 setupPeerConnection();
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
-                // Set the remote offer
+                // Set the remote offer (SDP without candidates - candidates come separately via trickle)
                 await voicePC.setRemoteDescription(new RTCSessionDescription(window._pendingOffer));
-
-                // Flush any buffered ICE candidates
-                for (const cand of pendingIceCandidates) {
-                    try { await voicePC.addIceCandidate(new RTCIceCandidate(cand)); } catch(e) {}
-                }
-                pendingIceCandidates = [];
+                // Add any ICE candidates that arrived before we accepted
+                await flushPendingIceCandidates();
 
                 const answer = await voicePC.createAnswer();
                 await voicePC.setLocalDescription(answer);
 
-                // Send answer immediately (stripped of candidates, trickle ICE)
-                sendCallSignal({ type: 'answer', sdp: stripSdpCandidates(voicePC.localDescription) });
+                // Send answer SDP without candidates (trickle ICE)
+                const strippedAnswer = stripSdpCandidates(voicePC.localDescription);
+                sendCallSignal({ type: 'answer', sdp: strippedAnswer });
 
-                callState = 'calling'; // Wait for ICE connection
+                callState = 'calling';
                 updateCallUI();
                 addMsg('sys', '📡 تم قبول الاتصال، جاري الاتصال...');
             } catch (e) {
@@ -1674,12 +1648,11 @@
                 localStream = null;
             }
             remoteStream = null;
-            pendingIceCandidates = [];
-            sdpChunks = {};
             const audioEl = document.getElementById('remote-audio');
             if (audioEl) { audioEl.srcObject = null; audioEl.remove(); }
             callState = 'idle';
             isMuted = false;
+            _pendingIceCandidates = [];
             window._pendingOffer = null;
             clearInterval(callTimerInterval);
             callTimerInterval = null;
@@ -1824,6 +1797,8 @@
 
         function startGame() {
             id('lobby').classList.add('hidden');
+            initGameState();
+            renderBoard();
             updateConnUI(true, 'متصل');
             addMsg('sys', isHost ? `🎯 أنت المضيف (${getPlayerName('X')}). ابدأ اللعب!` : `🎯 تم الاتصال! أنت (${getPlayerName('O')})`);
             updateNamesUI();
@@ -2031,76 +2006,46 @@
             send(data) {
                 if (!this.open) return;
                 const msg = JSON.stringify({sender: this.senderId, target: '', payload: data});
-                // ntfy.sh default message size limit is 4096 bytes
-                // If message is too large, split voice signals into chunks
-                if (msg.length > 4000 && data.type === 'voice_signal' && data.signal && data.signal.sdp) {
-                    const sdpStr = data.signal.sdp.sdp || '';
-                    const chunkSize = 2000;
-                    const msgId = Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
-                    for (let i = 0; i < sdpStr.length; i += chunkSize) {
-                        const chunk = sdpStr.slice(i, i + chunkSize);
-                        const chunkData = {
-                            type: 'voice_signal',
-                            signal: {
-                                type: 'sdp_chunk',
-                                msgId: msgId,
-                                chunkIndex: Math.floor(i / chunkSize),
-                                totalChunks: Math.ceil(sdpStr.length / chunkSize),
-                                sdpType: data.signal.sdp.type,
-                                chunk: chunk
-                            }
-                        };
-                        const chunkMsg = JSON.stringify({sender: this.senderId, target: '', payload: chunkData});
-                        fetch(`https://ntfy.sh/${this.topic}`, {
-                            method: 'POST',
-                            body: chunkMsg
-                        }).catch(e => console.error('ntfy chunk send failed:', e));
-                    }
-                } else {
+                // ntfy.sh has a ~4KB message limit. If message is too large, chunk it.
+                if (msg.length > 3800) {
+                    this._sendChunked(data);
+                    return;
+                }
+                fetch(`https://ntfy.sh/${this.topic}`, {
+                    method: 'POST',
+                    body: msg
+                }).catch(e => console.error('ntfy send failed:', e));
+            }
+
+            _sendChunked(data) {
+                // Split large payload into chunks that fit within ntfy.sh limit
+                const chunkId = Date.now().toString(36) + Math.random().toString(36).substr(2,4);
+                const payloadStr = JSON.stringify(data);
+                const CHUNK_SIZE = 3500;
+                const total = Math.ceil(payloadStr.length / CHUNK_SIZE);
+                for (let i = 0; i < total; i++) {
+                    const chunk = payloadStr.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                    const msg = JSON.stringify({sender: this.senderId, target: '', payload: {type: '_chunk', chunkId, i, total, data: chunk}});
                     fetch(`https://ntfy.sh/${this.topic}`, {
                         method: 'POST',
                         body: msg
-                    }).catch(e => console.error('ntfy send failed:', e));
+                    }).catch(e => console.error('ntfy chunk send failed:', e));
                 }
             }
 
             sendDirect(targetId, data) {
                 if (!this.open) return;
                 const msg = JSON.stringify({sender: this.senderId, target: targetId, payload: data});
-                if (msg.length > 4000 && data.type === 'voice_signal' && data.signal && data.signal.sdp) {
-                    const sdpStr = data.signal.sdp.sdp || '';
-                    const chunkSize = 2000;
-                    const msgId = Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
-                    for (let i = 0; i < sdpStr.length; i += chunkSize) {
-                        const chunk = sdpStr.slice(i, i + chunkSize);
-                        const chunkData = {
-                            type: 'voice_signal',
-                            signal: {
-                                type: 'sdp_chunk',
-                                msgId: msgId,
-                                chunkIndex: Math.floor(i / chunkSize),
-                                totalChunks: Math.ceil(sdpStr.length / chunkSize),
-                                sdpType: data.signal.sdp.type,
-                                chunk: chunk
-                            }
-                        };
-                        const chunkMsg = JSON.stringify({sender: this.senderId, target: targetId, payload: chunkData});
-                        fetch(`https://ntfy.sh/${this.topic}`, {
-                            method: 'POST',
-                            body: chunkMsg
-                        }).catch(e => console.error('ntfy chunk sendDirect failed:', e));
-                    }
-                } else {
-                    fetch(`https://ntfy.sh/${this.topic}`, {
-                        method: 'POST',
-                        body: msg
-                    }).catch(e => console.error('ntfy sendDirect failed:', e));
-                }
+                fetch(`https://ntfy.sh/${this.topic}`, {
+                    method: 'POST',
+                    body: msg
+                }).catch(e => console.error('ntfy sendDirect failed:', e));
             }
 
             subscribe() {
                 if (this._es) this._es.close();
                 this._seenIds = new Set(); // dedup messages from since= parameter
+                this._chunkBuffers = {}; // For reassembling chunked messages
                 // since=5m: get messages from last 5 minutes on reconnect
                 this._es = new EventSource(`https://ntfy.sh/${this.topic}/sse?since=5m`);
                 this._es.onmessage = (event) => {
@@ -2122,8 +2067,27 @@
                         if (msg.sender === this.senderId) return;
                         // If targeted and not for us, ignore
                         if (msg.target && msg.target !== this.senderId) return;
+                        // Handle chunked messages
+                        const payload = msg.payload;
+                        if (payload && payload.type === '_chunk') {
+                            if (!this._chunkBuffers[payload.chunkId]) {
+                                this._chunkBuffers[payload.chunkId] = { total: payload.total, chunks: {} };
+                            }
+                            const buf = this._chunkBuffers[payload.chunkId];
+                            buf.chunks[payload.i] = payload.data;
+                            // Check if all chunks received
+                            if (Object.keys(buf.chunks).length === buf.total) {
+                                const fullStr = Object.keys(buf.chunks).sort((a,b) => a-b).map(k => buf.chunks[k]).join('');
+                                try {
+                                    const reassembled = JSON.parse(fullStr);
+                                    this._emit('data', reassembled);
+                                } catch(e) { console.error('Chunk reassembly parse error:', e); }
+                                delete this._chunkBuffers[payload.chunkId];
+                            }
+                            return;
+                        }
                         // Emit data event with the payload
-                        this._emit('data', msg.payload);
+                        this._emit('data', payload);
                     } catch(e) {}
                 };
                 this._es.onerror = () => {
@@ -2176,7 +2140,7 @@
             } catch(e) {}
         });
 
-        let connDebugLog = [];
+        var connDebugLog = [];
 
         function connLog(msg) {
             const ts = new Date().toLocaleTimeString();
@@ -3522,12 +3486,26 @@
         }
 
         // ===== Modified click handler for multiplayer =====
+        let _mpClickMsgTime = 0;
         function mpOnCellClick(r, c) {
-            if (gameOver || !mpState.matchActive) return;
-            if (!mpState.myId || (mpState.myId !== mpState.matchP1Id && mpState.myId !== mpState.matchP2Id)) return;
+            if (gameOver) return;
+            if (!mpState.matchActive) {
+                const now = Date.now();
+                if (now - _mpClickMsgTime > 5000) { addMsg('sys', '⏳ المباراة لم تبدأ بعد'); _mpClickMsgTime = now; }
+                return;
+            }
+            if (!mpState.myId || (mpState.myId !== mpState.matchP1Id && mpState.myId !== mpState.matchP2Id)) {
+                const now = Date.now();
+                if (now - _mpClickMsgTime > 5000) { addMsg('sys', '👀 أنت متفرج في هذه المباراة'); _mpClickMsgTime = now; }
+                return;
+            }
             if (board[r][c] !== null || used[r][c]) return;
             const p = mpState.myId === mpState.matchP1Id ? 'X' : 'O';
-            if ((p === 'X' && curPlayer !== 'X') || (p === 'O' && curPlayer !== 'O')) return;
+            if ((p === 'X' && curPlayer !== 'X') || (p === 'O' && curPlayer !== 'O')) {
+                const now = Date.now();
+                if (now - _mpClickMsgTime > 5000) { addMsg('sys', '⏳ ليس دورك'); _mpClickMsgTime = now; }
+                return;
+            }
 
             if (isMpHost) {
                 // Host: update locally and broadcast
@@ -3630,16 +3608,7 @@
             id('mp-cloud-restore-input').classList.add('hidden');
         };
 
-        // Patch: Intercept cell clicks for multiplayer mode
-        document.addEventListener('click', e => {
-            const cell = e.target.closest('.cell');
-            if (!cell || gameMode !== 'mp') return;
-            e.preventDefault();
-            e.stopPropagation();
-            const r = parseInt(cell.dataset.r);
-            const c = parseInt(cell.dataset.c);
-            mpOnCellClick(r, c);
-        });
+        // Cell click for multiplayer is handled by onCellClick → mpOnCellClick delegation
 
         // ========== Mode Selection ==========
         document.querySelectorAll('.mp-mode-btn').forEach(btn => {
