@@ -929,6 +929,8 @@
                     el.style.right = `${c * CELL}px`;
                     el.style.top = `${r * CELL}px`;
                     el.onclick = () => onCellClick(r, c);
+                    // Touch support for mobile
+                    el.ontouchend = (e) => { e.preventDefault(); onCellClick(r, c); };
                     boardEl.appendChild(el);
                 }
             }
@@ -1362,27 +1364,55 @@
         });
 
         // ========== Voice Call System (WebRTC + ntfy.sh signaling) ==========
+        // Uses "Complete ICE Gathering" approach: wait for all ICE candidates
+        // before sending SDP. This avoids timing issues with trickle ICE over ntfy.sh.
         const ICE_SERVERS = [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' }
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            // Free TURN relay for NAT traversal
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
         ];
-        let voicePC = null;       // RTCPeerConnection
-        let localStream = null;   // Local audio stream
-        let remoteStream = null;  // Remote audio stream
-        let callState = 'idle';   // idle | calling | ringing | connected
+        let voicePC = null;
+        let localStream = null;
+        let remoteStream = null;
+        let callState = 'idle'; // idle | calling | ringing | connected
         let callTimerInterval = null;
         let callStartTime = 0;
         let isMuted = false;
 
         function sendCallSignal(data) {
-            // Send signaling data through the existing ntfy.sh connection
             if (conn && conn.open) {
                 conn.send({ type: 'voice_signal', signal: data });
             } else if (mpNftyConn && mpNftyConn.open) {
                 mpNftyConn.send({ type: 'voice_signal', signal: data, mpPid: mpState.myId || '' });
             }
+        }
+
+        // Wait for ICE gathering to complete, then return the full local description
+        function waitForIceGathering(pc) {
+            return new Promise((resolve) => {
+                if (pc.iceGatheringState === 'complete') {
+                    resolve(pc.localDescription);
+                    return;
+                }
+                const onStateChange = () => {
+                    if (pc.iceGatheringState === 'complete') {
+                        pc.removeEventListener('icegatheringstatechange', onStateChange);
+                        resolve(pc.localDescription);
+                    }
+                };
+                pc.addEventListener('icegatheringstatechange', onStateChange);
+                // Timeout after 5 seconds - send what we have
+                setTimeout(() => {
+                    pc.removeEventListener('icegatheringstatechange', onStateChange);
+                    resolve(pc.localDescription);
+                }, 5000);
+            });
         }
 
         async function startVoiceCall() {
@@ -1398,14 +1428,16 @@
 
                 voicePC = new RTCPeerConnection({ iceServers: ICE_SERVERS });
                 setupPeerConnection();
-
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
                 const offer = await voicePC.createOffer();
                 await voicePC.setLocalDescription(offer);
 
-                // Send offer through ntfy.sh
-                sendCallSignal({ type: 'offer', sdp: voicePC.localDescription });
+                // Wait for ICE gathering to complete, then send full SDP
+                addMsg('sys', '🔄 جاري تجميع مسارات الاتصال...');
+                const fullOffer = await waitForIceGathering(voicePC);
+                sendCallSignal({ type: 'offer', sdp: fullOffer });
+                addMsg('sys', '📡 تم إرسال طلب الاتصال...');
             } catch (e) {
                 console.error('Voice call error:', e);
                 addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
@@ -1415,40 +1447,43 @@
 
         function setupPeerConnection() {
             voicePC.onicecandidate = (event) => {
-                if (event.candidate) {
-                    sendCallSignal({ type: 'ice-candidate', candidate: event.candidate });
-                }
+                // No need to send individual candidates - we wait for complete gathering
             };
 
             voicePC.ontrack = (event) => {
                 remoteStream = event.streams[0];
-                // Play remote audio
                 let audioEl = document.getElementById('remote-audio');
                 if (!audioEl) {
                     audioEl = document.createElement('audio');
                     audioEl.id = 'remote-audio';
                     audioEl.autoplay = true;
+                    audioEl.playsInline = true;
                     document.body.appendChild(audioEl);
                 }
                 audioEl.srcObject = remoteStream;
+                // Force play (browsers require user interaction)
+                audioEl.play().catch(() => {});
             };
 
             voicePC.oniceconnectionstatechange = () => {
-                if (voicePC) {
-                    const state = voicePC.iceConnectionState;
-                    if (state === 'connected' || state === 'completed') {
-                        if (callState !== 'connected') {
-                            callState = 'connected';
-                            callStartTime = Date.now();
-                            startCallTimer();
-                            updateCallUI();
-                            addMsg('sys', '✅ تم الاتصال صوتياً');
-                        }
-                    } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
-                        if (callState === 'connected') {
-                            addMsg('sys', '📞 انقطع الاتصال الصوتي');
-                            resetCall();
-                        }
+                if (!voicePC) return;
+                const state = voicePC.iceConnectionState;
+                console.log('ICE state:', state);
+                if (state === 'connected' || state === 'completed') {
+                    if (callState !== 'connected') {
+                        callState = 'connected';
+                        callStartTime = Date.now();
+                        startCallTimer();
+                        updateCallUI();
+                        addMsg('sys', '✅ تم الاتصال صوتياً');
+                    }
+                } else if (state === 'disconnected') {
+                    // Brief disconnect, wait a bit
+                    addMsg('sys', '⚠️ انقطاع مؤقت في الاتصال الصوتي...');
+                } else if (state === 'failed' || state === 'closed') {
+                    if (callState === 'connected' || callState === 'calling' || callState === 'ringing') {
+                        addMsg('sys', '📞 فشل الاتصال الصوتي');
+                        resetCall();
                     }
                 }
             };
@@ -1459,7 +1494,6 @@
             if (!signal || !signal.type) return;
 
             if (signal.type === 'offer') {
-                // Incoming call
                 if (callState !== 'idle') {
                     sendCallSignal({ type: 'reject', reason: 'busy' });
                     return;
@@ -1468,24 +1502,22 @@
                 updateCallUI();
                 id('caller-name').textContent = opponentName || 'الخصم';
                 id('incoming-call-overlay').classList.add('show');
-                // Store offer for later
                 window._pendingOffer = signal.sdp;
             }
             else if (signal.type === 'answer') {
-                // Call was accepted
+                // Caller receives answer from receiver
                 if (voicePC && voicePC.signalingState === 'have-local-offer') {
-                    await voicePC.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-                }
-            }
-            else if (signal.type === 'ice-candidate') {
-                if (voicePC && signal.candidate) {
                     try {
-                        await voicePC.addIceCandidate(new RTCIceCandidate(signal.candidate));
-                    } catch (e) { console.error('ICE candidate error:', e); }
+                        await voicePC.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+                        // Now the connection should establish via ICE
+                    } catch (e) {
+                        console.error('Set remote description error:', e);
+                        addMsg('sys', '❌ فشل في الاتصال الصوتي');
+                        resetCall();
+                    }
                 }
             }
             else if (signal.type === 'reject') {
-                // Call was rejected
                 addMsg('sys', '📞 رفض الخصم الاتصال');
                 resetCall();
             }
@@ -1501,19 +1533,22 @@
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 voicePC = new RTCPeerConnection({ iceServers: ICE_SERVERS });
                 setupPeerConnection();
-
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
+                // Set the remote offer (includes ICE candidates)
                 await voicePC.setRemoteDescription(new RTCSessionDescription(window._pendingOffer));
                 const answer = await voicePC.createAnswer();
                 await voicePC.setLocalDescription(answer);
 
-                sendCallSignal({ type: 'answer', sdp: voicePC.localDescription });
-                callState = 'connected';
-                callStartTime = Date.now();
-                startCallTimer();
+                // Wait for ICE gathering to complete, then send full answer
+                addMsg('sys', '🔄 جاري تجميع مسارات الاتصال...');
+                const fullAnswer = await waitForIceGathering(voicePC);
+                sendCallSignal({ type: 'answer', sdp: fullAnswer });
+
+                // Don't set connected here - wait for ICE connection state
+                callState = 'calling'; // Treat as calling until ICE connects
                 updateCallUI();
-                addMsg('sys', '✅ تم الاتصال صوتياً');
+                addMsg('sys', '📡 تم قبول الاتصال، جاري الاتصال...');
             } catch (e) {
                 console.error('Accept call error:', e);
                 addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
@@ -1557,7 +1592,7 @@
             }
             remoteStream = null;
             const audioEl = document.getElementById('remote-audio');
-            if (audioEl) { audioEl.srcObject = null; }
+            if (audioEl) { audioEl.srcObject = null; audioEl.remove(); }
             callState = 'idle';
             isMuted = false;
             window._pendingOffer = null;
@@ -1568,6 +1603,7 @@
 
         function startCallTimer() {
             clearInterval(callTimerInterval);
+            id('call-timer').textContent = '00:00';
             callTimerInterval = setInterval(() => {
                 const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
                 const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
@@ -1579,7 +1615,6 @@
         function updateCallUI() {
             const callBtn = id('btn-voice-call');
             const callBar = id('voice-call-bar');
-            const muteBtn = id('btn-mute');
 
             callBtn.className = 'chat-tool-btn';
             callBar.classList.remove('active');
@@ -1601,8 +1636,8 @@
                     callBtn.classList.add('call-active');
                     callBar.classList.add('active');
                     id('call-status-text').textContent = 'متصل';
-                    muteBtn.textContent = isMuted ? '🔇' : '🎤';
-                    muteBtn.classList.toggle('muted', isMuted);
+                    id('btn-mute').textContent = isMuted ? '🔇' : '🎤';
+                    id('btn-mute').classList.toggle('muted', isMuted);
                     break;
             }
         }
@@ -3504,11 +3539,24 @@
             if (window.innerWidth > 768) id('chat').classList.remove('open');
         });
 
-        renderBoard();
-        updateScoreUI();
-        updateTurnUI();
-        updateConnUI(false, 'غير متصل');
-        updateNamesUI();
+        // Global error handler
+        window.onerror = (msg, url, lineNo, colNo, error) => {
+            console.error('Game Error:', msg, 'Line:', lineNo);
+            return false;
+        };
+
+        try {
+            renderBoard();
+            updateScoreUI();
+            updateTurnUI();
+            updateConnUI(false, 'غير متصل');
+            updateNamesUI();
+            console.log('✅ Game initialized successfully');
+        } catch(e) {
+            console.error('❌ Init error:', e);
+            // Try to render board anyway
+            try { renderBoard(); } catch(e2) { console.error('Board render failed:', e2); }
+        }
     </script>
 </body>
 </html>
