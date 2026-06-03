@@ -1390,18 +1390,23 @@
         });
 
         // ========== Voice Call System (WebRTC + ntfy.sh signaling) ==========
-        // Uses Trickle ICE: send SDP without candidates first, then
-        // send each ICE candidate individually. This ensures all messages
-        // fit within ntfy.sh's 4KB limit.
+        // Architecture: Trickle ICE with BATCHED candidates
+        // 1. Send SDP without candidates immediately (fits in ntfy.sh 4KB)
+        // 2. Batch ICE candidates and send every 800ms (avoid ntfy.sh rate limit)
+        // 3. Send "ice_complete" signal when gathering is done
+        //
+        // Key insight: ntfy.sh limits to ~1 msg/sec. Sending each ICE candidate
+        // individually would exceed this limit. Batching solves it.
+
         const ICE_SERVERS = [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            // Metered TURN relay for NAT traversal (free tier)
+            // TURN servers for NAT traversal (critical for mobile networks)
             { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
             { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
             { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
         ];
+
         let voicePC = null;
         let localStream = null;
         let remoteStream = null;
@@ -1409,25 +1414,79 @@
         let callTimerInterval = null;
         let callStartTime = 0;
         let isMuted = false;
-        let _pendingIceCandidates = []; // ICE candidates received before remote description is set
 
-        // Strip ICE candidate lines from SDP to reduce size
-        function stripSdpCandidates(sdpStr) {
-            if (!sdpStr || !sdpStr.sdp) return sdpStr;
-            const cleaned = sdpStr.sdp.split('\n')
-                .filter(line => !line.startsWith('a=candidate'))
-                .join('\n');
-            return { type: sdpStr.type, sdp: cleaned };
+        // ICE candidate batching: collect candidates, send in batches
+        let _iceBatch = [];
+        let _iceBatchTimer = null;
+        let _iceGatheringDone = false;
+
+        // Pending candidates received before remote description is set
+        let _pendingIceCandidates = [];
+
+        // ---- SDP Compression ----
+        // Strip candidate lines and ssrc lines to reduce SDP size
+        // Only removes lines that are safe to strip (candidates sent separately via trickle)
+        function compressSdp(sdpObj) {
+            if (!sdpObj || !sdpObj.sdp) return sdpObj;
+            const lines = sdpObj.sdp.split('\n');
+            const kept = [];
+            for (const line of lines) {
+                const t = line.trim();
+                // Strip candidate lines (they're sent separately via batched trickle ICE)
+                if (t.startsWith('a=candidate')) continue;
+                // Strip ssrc-group lines (not needed for audio-only call)
+                if (t.startsWith('a=ssrc-group:')) continue;
+                // Strip ssrc lines (not required for initial SDP exchange, browser recreates them)
+                if (t.startsWith('a=ssrc:')) continue;
+                kept.push(line);
+            }
+            return { type: sdpObj.type, sdp: kept.join('\n') };
         }
 
+        // ---- Send voice signal with size validation ----
         function sendCallSignal(data) {
+            let sent = false;
             if (conn && conn.open) {
                 conn.send({ type: 'voice_signal', signal: data });
-            } else if (mpNftyConn && mpNftyConn.open) {
+                sent = true;
+            }
+            if (mpNftyConn && mpNftyConn.open) {
                 mpNftyConn.send({ type: 'voice_signal', signal: data, mpPid: mpState.myId || '' });
+                sent = true;
+            }
+            if (!sent) {
+                console.warn('⚠️ sendCallSignal: no active connection');
             }
         }
 
+        // ---- ICE Candidate Batching ----
+        // Collects candidates and sends them in batches every 800ms
+        // This avoids ntfy.sh's ~1 msg/sec rate limit
+        function _flushIceBatch() {
+            if (_iceBatch.length === 0) return;
+            const candidates = _iceBatch.splice(0);
+            console.log(`📡 Sending ${candidates.length} ICE candidates`);
+            sendCallSignal({ type: 'ice_candidates', candidates: candidates });
+        }
+
+        function _scheduleIceBatch() {
+            if (_iceBatchTimer) return; // Already scheduled
+            _iceBatchTimer = setTimeout(() => {
+                _iceBatchTimer = null;
+                _flushIceBatch();
+                // If gathering is done and we still have candidates, flush again
+                if (_iceGatheringDone && _iceBatch.length > 0) {
+                    _flushIceBatch();
+                }
+                // If gathering is done, send completion signal
+                if (_iceGatheringDone && _iceBatch.length === 0) {
+                    sendCallSignal({ type: 'ice_complete' });
+                    _iceGatheringDone = false;
+                }
+            }, 800);
+        }
+
+        // ---- Start Voice Call (Caller) ----
         async function startVoiceCall() {
             if (callState !== 'idle') return;
             if (gameMode === 'ai') { addMsg('sys', '⚠️ لا يمكن الاتصال بالكمبيوتر'); return; }
@@ -1443,14 +1502,17 @@
                 setupPeerConnection();
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
+                _iceGatheringDone = false;
                 const offer = await voicePC.createOffer();
                 await voicePC.setLocalDescription(offer);
 
-                // Send SDP immediately WITHOUT candidates (trickle ICE)
-                // This keeps the message small enough for ntfy.sh
-                const strippedOffer = stripSdpCandidates(voicePC.localDescription);
-                sendCallSignal({ type: 'offer', sdp: strippedOffer });
-                addMsg('sys', '📡 تم إرسال طلب الاتصال، جاري تجميع المسارات...');
+                // Send compressed SDP without candidates
+                const compressedOffer = compressSdp(voicePC.localDescription);
+                const msgSize = JSON.stringify(compressedOffer).length;
+                console.log(`📤 Offer SDP size: ${msgSize} bytes (compressed from ${JSON.stringify(voicePC.localDescription).length})`);
+
+                sendCallSignal({ type: 'offer', sdp: compressedOffer });
+                addMsg('sys', '📡 تم إرسال طلب الاتصال...');
             } catch (e) {
                 console.error('Voice call error:', e);
                 addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
@@ -1458,15 +1520,34 @@
             }
         }
 
+        // ---- Setup Peer Connection Events ----
         function setupPeerConnection() {
-            // Trickle ICE: send each candidate as it's discovered
+            // Trickle ICE: batch candidates instead of sending individually
             voicePC.onicecandidate = (event) => {
                 if (event.candidate) {
-                    sendCallSignal({ type: 'ice_candidate', candidate: event.candidate.toJSON() });
+                    _iceBatch.push(event.candidate.toJSON());
+                    _scheduleIceBatch();
                 }
             };
 
+            // ICE gathering complete
+            voicePC.onicegatheringstatechange = () => {
+                if (voicePC && voicePC.iceGatheringState === 'complete') {
+                    console.log('✅ ICE gathering complete');
+                    _iceGatheringDone = true;
+                    // Flush any remaining candidates immediately
+                    if (_iceBatchTimer) {
+                        clearTimeout(_iceBatchTimer);
+                        _iceBatchTimer = null;
+                    }
+                    _flushIceBatch();
+                    sendCallSignal({ type: 'ice_complete' });
+                }
+            };
+
+            // Remote audio track received
             voicePC.ontrack = (event) => {
+                console.log('🔊 Remote track received');
                 remoteStream = event.streams[0];
                 let audioEl = document.getElementById('remote-audio');
                 if (!audioEl) {
@@ -1478,36 +1559,44 @@
                     document.body.appendChild(audioEl);
                 }
                 audioEl.srcObject = remoteStream;
-                audioEl.play().then(() => {
-                    console.log('Remote audio playing successfully');
-                }).catch(e => {
-                    console.warn('Audio play failed, retrying:', e);
-                    setTimeout(() => audioEl.play().catch(() => {}), 500);
-                });
+                // Force play - browsers require user gesture for autoplay
+                const tryPlay = () => {
+                    audioEl.play().then(() => {
+                        console.log('🔊 Remote audio playing');
+                    }).catch(e => {
+                        console.warn('Audio play failed, retrying in 500ms:', e.message);
+                        setTimeout(tryPlay, 500);
+                    });
+                };
+                tryPlay();
             };
 
+            // ICE connection state changes
             voicePC.oniceconnectionstatechange = () => {
                 if (!voicePC) return;
                 const state = voicePC.iceConnectionState;
-                console.log('ICE state:', state);
+                console.log('ICE connection state:', state);
+
                 if (state === 'connected' || state === 'completed') {
                     if (callState !== 'connected') {
                         callState = 'connected';
                         callStartTime = Date.now();
                         startCallTimer();
                         updateCallUI();
-                        addMsg('sys', '✅ تم الاتصال صوتياً');
+                        addMsg('sys', '✅ تم الاتصال صوتياً - يمكنك التحدث الآن');
                     }
                 } else if (state === 'disconnected') {
                     addMsg('sys', '⚠️ انقطاع مؤقت في الاتصال الصوتي...');
+                    // Try ICE restart after 3 seconds
                     setTimeout(() => {
                         if (voicePC && voicePC.iceConnectionState === 'disconnected') {
-                            try { voicePC.restartIce(); } catch(e) {}
+                            try { voicePC.restartIce(); console.log('🔄 ICE restart attempted'); } catch(e) {}
                         }
                     }, 3000);
                 } else if (state === 'failed') {
-                    addMsg('sys', '❌ فشل الاتصال الصوتي - قد يكون بسبب قيود الشبكة');
-                    addMsg('sys', '💡 تأكد من السماح بالوصول للميكروفون وأن الشبكة تسمح باتصالات WebRTC');
+                    addMsg('sys', '❌ فشل الاتصال الصوتي');
+                    addMsg('sys', '💡 السبب المحتمل: الشبكة تمنع اتصالات WebRTC أو خوادم الوسيط غير متاحة');
+                    addMsg('sys', '💡 جرب الاتصال من شبكة WiFi مختلفة أو تأكد من السماح بالوصول للميكروفون');
                     resetCall();
                 } else if (state === 'closed') {
                     if (callState !== 'idle') {
@@ -1518,7 +1607,7 @@
             };
         }
 
-        // Add pending ICE candidates after remote description is set
+        // ---- Add pending ICE candidates after remote description is set ----
         async function flushPendingIceCandidates() {
             while (_pendingIceCandidates.length > 0) {
                 const cand = _pendingIceCandidates.shift();
@@ -1530,11 +1619,15 @@
             }
         }
 
+        // ---- Handle Incoming Voice Signal ----
         async function handleVoiceSignal(data) {
             const signal = data.signal || data;
             if (!signal || !signal.type) return;
 
+            console.log('📥 Voice signal received:', signal.type);
+
             if (signal.type === 'offer') {
+                // Incoming call
                 if (callState !== 'idle') {
                     sendCallSignal({ type: 'reject', reason: 'busy' });
                     return;
@@ -1544,6 +1637,8 @@
                 id('caller-name').textContent = opponentName || 'الخصم';
                 id('incoming-call-overlay').classList.add('show');
                 window._pendingOffer = signal.sdp;
+                // Also store any early ICE candidates
+                _pendingIceCandidates = [];
             }
             else if (signal.type === 'answer') {
                 // Caller receives answer from receiver
@@ -1555,13 +1650,30 @@
                         await flushPendingIceCandidates();
                     } catch (e) {
                         console.error('Set remote description error:', e);
-                        addMsg('sys', '❌ فشل في الاتصال الصوتي');
+                        addMsg('sys', '❌ فشل في معالجة رد الاتصال: ' + e.message);
                         resetCall();
                     }
                 }
             }
+            else if (signal.type === 'ice_candidates') {
+                // Batch of ICE candidates received
+                const candidates = signal.candidates || [];
+                console.log(`📥 Received ${candidates.length} ICE candidates`);
+                for (const cand of candidates) {
+                    if (voicePC && voicePC.remoteDescription) {
+                        try {
+                            await voicePC.addIceCandidate(new RTCIceCandidate(cand));
+                        } catch (e) {
+                            console.warn('Add ICE candidate error:', e);
+                        }
+                    } else {
+                        // Buffer until remote description is set
+                        _pendingIceCandidates.push(cand);
+                    }
+                }
+            }
             else if (signal.type === 'ice_candidate') {
-                // Trickle ICE: add candidate as it arrives
+                // Single ICE candidate (legacy/compatibility)
                 if (voicePC && voicePC.remoteDescription) {
                     try {
                         await voicePC.addIceCandidate(new RTCIceCandidate(signal.candidate));
@@ -1569,12 +1681,15 @@
                         console.warn('Add ICE candidate error:', e);
                     }
                 } else {
-                    // Buffer candidates until remote description is set
                     _pendingIceCandidates.push(signal.candidate);
                 }
             }
+            else if (signal.type === 'ice_complete') {
+                console.log('✅ Remote ICE gathering complete');
+            }
             else if (signal.type === 'reject') {
-                addMsg('sys', '📞 رفض الخصم الاتصال');
+                const reasons = { busy: 'الخصم مشغول بمكالمة أخرى', declined: 'رفض الخصم الاتصال', error: 'حدث خطأ عند الخصم' };
+                addMsg('sys', '📞 ' + (reasons[signal.reason] || 'رفض الخصم الاتصال'));
                 resetCall();
             }
             else if (signal.type === 'hangup') {
@@ -1583,6 +1698,7 @@
             }
         }
 
+        // ---- Accept Incoming Call (Receiver) ----
         async function acceptIncomingCall() {
             id('incoming-call-overlay').classList.remove('show');
             try {
@@ -1591,29 +1707,34 @@
                 setupPeerConnection();
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
-                // Set the remote offer (SDP without candidates - candidates come separately via trickle)
+                // Set the remote offer
                 await voicePC.setRemoteDescription(new RTCSessionDescription(window._pendingOffer));
                 // Add any ICE candidates that arrived before we accepted
                 await flushPendingIceCandidates();
 
+                _iceGatheringDone = false;
                 const answer = await voicePC.createAnswer();
                 await voicePC.setLocalDescription(answer);
 
-                // Send answer SDP without candidates (trickle ICE)
-                const strippedAnswer = stripSdpCandidates(voicePC.localDescription);
-                sendCallSignal({ type: 'answer', sdp: strippedAnswer });
+                // Send compressed answer SDP
+                const compressedAnswer = compressSdp(voicePC.localDescription);
+                const msgSize = JSON.stringify(compressedAnswer).length;
+                console.log(`📤 Answer SDP size: ${msgSize} bytes`);
+
+                sendCallSignal({ type: 'answer', sdp: compressedAnswer });
 
                 callState = 'calling';
                 updateCallUI();
                 addMsg('sys', '📡 تم قبول الاتصال، جاري الاتصال...');
             } catch (e) {
                 console.error('Accept call error:', e);
-                addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
+                addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون: ' + e.message);
                 sendCallSignal({ type: 'reject', reason: 'error' });
                 resetCall();
             }
         }
 
+        // ---- Reject Incoming Call ----
         function rejectIncomingCall() {
             id('incoming-call-overlay').classList.remove('show');
             sendCallSignal({ type: 'reject', reason: 'declined' });
@@ -1622,12 +1743,14 @@
             addMsg('sys', '📞 تم رفض الاتصال');
         }
 
+        // ---- Hangup Call ----
         function hangupCall() {
             sendCallSignal({ type: 'hangup' });
             addMsg('sys', '📞 تم إنهاء المكالمة');
             resetCall();
         }
 
+        // ---- Toggle Mute ----
         function toggleMute() {
             if (!localStream) return;
             isMuted = !isMuted;
@@ -1638,6 +1761,7 @@
             muteBtn.title = isMuted ? 'إلغاء الكتم' : 'كتم';
         }
 
+        // ---- Reset Call State ----
         function resetCall() {
             if (voicePC) {
                 voicePC.close();
@@ -1653,12 +1777,16 @@
             callState = 'idle';
             isMuted = false;
             _pendingIceCandidates = [];
+            _iceBatch = [];
+            _iceGatheringDone = false;
+            if (_iceBatchTimer) { clearTimeout(_iceBatchTimer); _iceBatchTimer = null; }
             window._pendingOffer = null;
             clearInterval(callTimerInterval);
             callTimerInterval = null;
             updateCallUI();
         }
 
+        // ---- Call Timer ----
         function startCallTimer() {
             clearInterval(callTimerInterval);
             id('call-timer').textContent = '00:00';
@@ -1670,6 +1798,7 @@
             }, 1000);
         }
 
+        // ---- Update Call UI ----
         function updateCallUI() {
             const callBtn = id('btn-voice-call');
             const callBar = id('voice-call-bar');
@@ -2008,12 +2137,17 @@
                 const msg = JSON.stringify({sender: this.senderId, target: '', payload: data});
                 // ntfy.sh has a ~4KB message limit. If message is too large, chunk it.
                 if (msg.length > 3800) {
+                    console.warn(`⚠️ ntfy message too large (${msg.length} bytes), chunking...`);
                     this._sendChunked(data);
                     return;
                 }
                 fetch(`https://ntfy.sh/${this.topic}`, {
                     method: 'POST',
                     body: msg
+                }).then(res => {
+                    if (!res.ok) {
+                        console.error(`❌ ntfy POST failed: ${res.status} ${res.statusText} (size: ${msg.length})`);
+                    }
                 }).catch(e => console.error('ntfy send failed:', e));
             }
 
@@ -2026,19 +2160,33 @@
                 for (let i = 0; i < total; i++) {
                     const chunk = payloadStr.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
                     const msg = JSON.stringify({sender: this.senderId, target: '', payload: {type: '_chunk', chunkId, i, total, data: chunk}});
-                    fetch(`https://ntfy.sh/${this.topic}`, {
-                        method: 'POST',
-                        body: msg
-                    }).catch(e => console.error('ntfy chunk send failed:', e));
+                    // Add delay between chunks to avoid rate limiting
+                    setTimeout(() => {
+                        fetch(`https://ntfy.sh/${this.topic}`, {
+                            method: 'POST',
+                            body: msg
+                        }).then(res => {
+                            if (!res.ok) console.error(`❌ ntfy chunk POST failed: ${res.status}`);
+                        }).catch(e => console.error('ntfy chunk send failed:', e));
+                    }, i * 1000); // 1 second delay between chunks
                 }
             }
 
             sendDirect(targetId, data) {
                 if (!this.open) return;
                 const msg = JSON.stringify({sender: this.senderId, target: targetId, payload: data});
+                if (msg.length > 3800) {
+                    console.warn(`⚠️ ntfy sendDirect too large (${msg.length} bytes), chunking...`);
+                    this._sendChunked(data);
+                    return;
+                }
                 fetch(`https://ntfy.sh/${this.topic}`, {
                     method: 'POST',
                     body: msg
+                }).then(res => {
+                    if (!res.ok) {
+                        console.error(`❌ ntfy sendDirect POST failed: ${res.status} (size: ${msg.length})`);
+                    }
                 }).catch(e => console.error('ntfy sendDirect failed:', e));
             }
 
@@ -2817,6 +2965,9 @@
                         mpRenderPlayerList();
                         mpShowNotification(`✅ مرحباً بعودتك ${data.name}!`, 'info');
                     }
+                    break;
+                case 'voice_signal':
+                    handleVoiceSignal(data);
                     break;
             }
         }
