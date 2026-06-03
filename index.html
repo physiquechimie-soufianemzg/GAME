@@ -414,19 +414,19 @@
         /* ===== Mobile ===== */
         @media (max-width:768px) {
             #chat {
-                position:fixed; left:0; top:0; bottom:0; width:85vw; max-width:320px;
-                transform:translateX(-100%); transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
-                z-index:50; box-shadow:5px 0 30px rgba(0,0,0,0.2);
+                position:fixed; right:0; top:0; bottom:0; width:85vw; max-width:320px;
+                transform:translateX(100%); transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
+                z-index:50; box-shadow:-5px 0 30px rgba(0,0,0,0.2);
                 border-left:none; border-right:none;
             }
             #chat.open { transform:translateX(0); }
             #chat-toggle {
-                display:block; position:fixed; left:10px; bottom:10px;
+                display:block; position:fixed; right:10px; bottom:10px;
                 background:linear-gradient(135deg,#3498db,#2980b9); color:white;
                 border:none; border-radius:50%; width:52px; height:52px;
                 font-size:1.4rem; cursor:pointer; z-index:51;
                 box-shadow:0 4px 20px rgba(52,152,219,0.4);
-                transition:all 0.2s;
+                transition:all 0.3s;
             }
             #chat-toggle:active { transform:scale(0.92); }
             #chat-input-row input { font-size:0.95rem; padding:10px 14px; }
@@ -756,7 +756,7 @@
     <div id="game-area">
         <div id="board-container"><div id="board"></div></div>
         <div id="chat">
-            <div id="chat-head"><span>💬 الدردشة</span><span class="chatter" id="chat-status"></span></div>
+            <div id="chat-head"><span>💬 الدردشة</span><span style="display:flex;align-items:center;gap:8px;"><span class="chatter" id="chat-status"></span><button id="chat-close-btn" style="display:none;background:none;border:none;color:var(--text-primary);font-size:1.2rem;cursor:pointer;padding:2px 6px;">✕</button></span></div>
             <div id="chat-toolbar">
                 <button class="chat-tool-btn" id="btn-voice-call">📞 اتصال صوتي</button>
             </div>
@@ -772,15 +772,15 @@
                     <button class="btn-hangup" id="btn-hangup" title="إنهاء المكالمة">📞</button>
                 </div>
             </div>
+            <div id="emoji-picker" style="display:none;padding:6px 8px;background:var(--bg-primary);border-top:1px solid var(--border-color);max-height:160px;overflow-y:auto;flex-shrink:0;">
+                <div id="emoji-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;text-align:center;"></div>
+            </div>
             <div id="chat-input-area">
                 <div id="chat-input-row">
                     <button id="c-emoji" type="button">😊</button>
                     <input type="text" id="c-txt" placeholder="رسالة..." maxlength="120" disabled>
                     <button id="c-send" disabled>➤</button>
                 </div>
-            </div>
-            <div id="emoji-picker" style="display:none;padding:6px 8px;background:var(--bg-primary);border-top:1px solid var(--border-color);max-height:160px;overflow-y:auto;flex-shrink:0;">
-                <div id="emoji-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;text-align:center;"></div>
             </div>
         </div>
     </div>
@@ -840,6 +840,9 @@
         let rematchRequested = false, opponentRematchRequested = false;
         let nameConfirmed = false, opponentNameConfirmed = false;
         let mpNftyConn = null; // NftyConn for multiplayer mode
+        let mpState = {players:[], mode:'league', myId:null, isHost:false, phase:'lobby', matches:[], currentMatchIdx:-1, standings:[], groups:[], matchActive:false, matchP1Id:null, matchP2Id:null, compOver:false, saveCode:''};
+        let mpConns = {}; let mpConnIdCounter = 0;
+        let isMpHost = false;
 
         function initGameState() {
             board = Array.from({length:gridSize},()=>Array(gridSize).fill(null));
@@ -1282,7 +1285,23 @@
             // Return to main page
             location.reload();
         };
-        id('chat-toggle').onclick = () => id('chat').classList.toggle('open');
+        id('chat-toggle').onclick = () => {
+            id('chat').classList.toggle('open');
+            // On mobile, show close button and hide toggle when chat is open
+            if (window.innerWidth <= 768) {
+                const isOpen = id('chat').classList.contains('open');
+                id('chat-close-btn').style.display = isOpen ? 'block' : 'none';
+                id('chat-toggle').style.opacity = isOpen ? '0' : '1';
+                id('chat-toggle').style.pointerEvents = isOpen ? 'none' : 'auto';
+            }
+        };
+        // Chat close button (mobile)
+        id('chat-close-btn').onclick = () => {
+            id('chat').classList.remove('open');
+            id('chat-close-btn').style.display = 'none';
+            id('chat-toggle').style.opacity = '1';
+            id('chat-toggle').style.pointerEvents = 'auto';
+        };
 
         // Leave game button in control bar - only active when game is over
         id('btn-leave-ingame').onclick = () => {
@@ -1313,7 +1332,7 @@
         }
 
         // Emoji picker
-        const EMOJIS = ['😊','😂','🤣','😍','🥰','😎','🤩','😜','🤔','😏','😱','😢','😡','👍','👎','👏','🙌','💪','🤝','✌️','🤞','👋','🎉','🏆','🎯','🔥','❤️','💙','💚','💛','💜','🖤','💔','⭐','✨','🌟','💯','棋牌','🎲','🃏','🎮','🕹️','😄','😁','😆','🥳','😇','🤗','🫡','😴','🤯','😬','🫣','🤭','🫢','😈','👻','💀','🤖','👽','🎃'];
+        const EMOJIS = ['😊','😂','🤣','😍','🥰','😎','🤩','😜','🤔','😏','😱','😢','😡','👍','👎','👏','🙌','💪','🤝','✌️','🤞','👋','🎉','🏆','🎯','🔥','❤️','💙','💚','💛','💜','🖤','💔','⭐','✨','🌟','💯','🎲','🃏','🎮','🕹️','😄','😁','😆','🥳','😇','🤗','😴','🤯','😬','🤭','😈','👻','💀','🤖','👽','🎃','😼','😽','🫶','🫰'];
         const emojiGrid = id('emoji-grid');
         EMOJIS.forEach(e => {
             const btn = document.createElement('span');
@@ -2178,10 +2197,7 @@
         };
 
         // ========== Multiplayer State ==========
-        let mpState = {players:[], mode:'league', myId:null, isHost:false, phase:'lobby', matches:[], currentMatchIdx:-1, standings:[], groups:[], matchActive:false, matchP1Id:null, matchP2Id:null, compOver:false, saveCode:''};
-        let mpConns = {}; let mpConnIdCounter = 0;
-        let isMpHost = false;
-        // mpNftyConn is declared above (near line 680)
+        // mpState, mpConns, isMpHost are declared at the top with other globals
 
         // ========== Personal Code Helpers ==========
         function mpGeneratePersonalCode() {
