@@ -157,13 +157,39 @@
 
         /* ===== Chat ===== */
         #chat {
-            width:230px; background:var(--bg-secondary); border-left:1px solid var(--border-color);
+            width:260px; background:var(--bg-secondary); border-left:1px solid var(--border-color);
             display:flex; flex-direction:column;
             box-shadow:-3px 0 15px rgba(0,0,0,0.15);
             flex-shrink:0; position:relative; z-index:5;
         }
-        #chat-head { padding:8px 12px; background:linear-gradient(135deg,var(--bg-primary),var(--bg-secondary)); color:var(--text-primary); font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; border-bottom:1px solid var(--border-color); }
+        #chat-head {
+            padding:10px 14px; background:linear-gradient(135deg,var(--bg-primary),var(--bg-secondary));
+            color:var(--text-primary); font-size:0.85rem; display:flex; justify-content:space-between; align-items:center;
+            flex-shrink:0; border-bottom:1px solid var(--border-color);
+        }
         #chat-head .chatter { font-size:0.68rem; opacity:0.6; }
+        #chat-toolbar {
+            display:flex; gap:4px; padding:6px 10px; background:rgba(15,23,42,0.5);
+            border-bottom:1px solid var(--border-color); flex-shrink:0;
+        }
+        .chat-tool-btn {
+            flex:1; padding:6px 4px; border:1px solid var(--border-color); border-radius:10px;
+            background:var(--bg-secondary); color:var(--text-primary); cursor:pointer; font-size:0.75rem;
+            font-weight:600; transition:all 0.15s; display:flex; align-items:center; justify-content:center; gap:4px;
+        }
+        .chat-tool-btn:hover { background:rgba(59,130,246,0.15); border-color:rgba(59,130,246,0.3); }
+        .chat-tool-btn.call-active {
+            background:linear-gradient(135deg,var(--accent-emerald),#059669); color:#fff;
+            border-color:var(--accent-emerald); animation:pulse 1.5s infinite;
+        }
+        .chat-tool-btn.call-ringing {
+            background:linear-gradient(135deg,var(--accent-amber),#d97706); color:#fff;
+            border-color:var(--accent-amber); animation:pulse 0.8s infinite;
+        }
+        .chat-tool-btn.call-ended {
+            background:linear-gradient(135deg,var(--accent-red),#dc2626); color:#fff;
+            border-color:var(--accent-red);
+        }
         #chat-msgs { flex:1; overflow-y:auto; padding:10px; font-size:0.8rem; display:flex; flex-direction:column; gap:5px; background:var(--bg-primary); min-height:0; }
         #chat-msgs::-webkit-scrollbar { width:4px; }
         #chat-msgs::-webkit-scrollbar-thumb { background:var(--text-muted); border-radius:4px; }
@@ -171,17 +197,81 @@
         .msg.me { background:linear-gradient(135deg,var(--accent-blue),#2563eb); color:#fff; align-self:flex-start; border-bottom-left-radius:3px; box-shadow:0 1px 3px var(--glow-blue); }
         .msg.other { background:rgba(30,41,59,0.8); color:var(--text-primary); align-self:flex-end; border-bottom-right-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,0.1); border:1px solid var(--border-color); }
         .msg.sys { background:transparent; color:var(--text-muted); font-style:italic; align-self:center; max-width:100%; font-size:0.72rem; }
-        #chat-input { padding:8px; border-top:1px solid var(--border-color); display:flex; gap:6px; background:var(--bg-secondary); flex-shrink:0; }
-        #chat-input input { flex:1; padding:7px 12px; border:1px solid var(--border-color); border-radius:20px; outline:none; font-size:0.82rem; min-width:0; transition:0.2s; background:var(--bg-primary); color:var(--text-primary); }
-        #chat-input input:focus { border-color:var(--accent-blue); background:rgba(15,23,42,0.8); box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
-        #chat-input input:disabled { background:rgba(15,23,42,0.5); cursor:not-allowed; opacity:0.6; }
-        #chat-input button {
-            padding:7px 14px; background:linear-gradient(135deg,var(--accent-blue),#2563eb); color:#fff;
-            border:none; border-radius:20px; cursor:pointer; font-size:0.85rem; white-space:nowrap;
-            transition:all 0.15s; box-shadow:0 2px 6px var(--glow-blue);
+        #chat-input-area {
+            padding:8px 10px; border-top:1px solid var(--border-color);
+            background:var(--bg-secondary); flex-shrink:0;
         }
-        #chat-input button:hover:not(:disabled) { background:linear-gradient(135deg,#2563eb,#1d4ed8); transform:translateY(-1px); box-shadow:0 3px 10px var(--glow-blue); }
-        #chat-input button:disabled { background:var(--text-muted); cursor:not-allowed; box-shadow:none; }
+        #chat-input-row {
+            display:flex; gap:5px; align-items:center;
+        }
+        #chat-input-row input {
+            flex:1; padding:10px 14px; border:1px solid var(--border-color); border-radius:22px;
+            outline:none; font-size:0.88rem; min-width:0; transition:0.2s;
+            background:var(--bg-primary); color:var(--text-primary);
+        }
+        #chat-input-row input:focus { border-color:var(--accent-blue); background:rgba(15,23,42,0.8); box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+        #chat-input-row input:disabled { background:rgba(15,23,42,0.5); cursor:not-allowed; opacity:0.6; }
+        #c-emoji {
+            width:38px; height:38px; border-radius:50%; border:1px solid var(--border-color);
+            background:var(--bg-primary); cursor:pointer; font-size:1.15rem; line-height:1;
+            transition:0.15s; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:0;
+        }
+        #c-emoji:hover { background:rgba(59,130,246,0.1); }
+        #c-send {
+            width:38px; height:38px; border-radius:50%;
+            background:linear-gradient(135deg,var(--accent-blue),#2563eb); color:#fff;
+            border:none; cursor:pointer; font-size:1rem; white-space:nowrap;
+            transition:all 0.15s; box-shadow:0 2px 6px var(--glow-blue);
+            flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:0;
+        }
+        #c-send:hover:not(:disabled) { background:linear-gradient(135deg,#2563eb,#1d4ed8); transform:translateY(-1px); box-shadow:0 3px 10px var(--glow-blue); }
+        #c-send:disabled { background:var(--text-muted); cursor:not-allowed; box-shadow:none; }
+
+        /* Voice Call UI */
+        #voice-call-bar {
+            display:none; padding:8px 12px;
+            background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(5,150,105,0.1));
+            border-top:1px solid rgba(16,185,129,0.2);
+            flex-shrink:0; align-items:center; justify-content:space-between; gap:8px;
+        }
+        #voice-call-bar.active { display:flex; }
+        #voice-call-bar .call-info { display:flex; align-items:center; gap:8px; font-size:0.8rem; color:var(--accent-emerald); font-weight:600; }
+        #voice-call-bar .call-timer { font-family:'SF Mono',Consolas,monospace; font-size:0.85rem; color:var(--accent-emerald); font-weight:700; }
+        #voice-call-bar .call-actions { display:flex; gap:6px; }
+        #voice-call-bar .call-actions button {
+            width:32px; height:32px; border-radius:50%; border:none; cursor:pointer; font-size:0.9rem;
+            display:flex; align-items:center; justify-content:center; transition:0.15s;
+        }
+        .btn-mute { background:var(--bg-secondary); color:var(--text-primary); border:1px solid var(--border-color) !important; }
+        .btn-mute.muted { background:var(--accent-red); color:#fff; border-color:var(--accent-red) !important; }
+        .btn-hangup { background:linear-gradient(135deg,var(--accent-red),#dc2626); color:#fff; }
+        .btn-hangup:hover { transform:scale(1.08); }
+
+        /* Incoming call overlay */
+        #incoming-call-overlay {
+            display:none; position:fixed; inset:0; z-index:300;
+            background:rgba(15,23,42,0.92); backdrop-filter:blur(12px);
+            justify-content:center; align-items:center; flex-direction:column; gap:20px;
+        }
+        #incoming-call-overlay.show { display:flex; }
+        .call-avatar {
+            width:90px; height:90px; border-radius:50%;
+            background:linear-gradient(135deg,var(--accent-cyan),var(--accent-purple));
+            display:flex; align-items:center; justify-content:center; font-size:2.5rem;
+            box-shadow:0 0 40px var(--glow-purple); animation:callPulse 1.5s infinite;
+        }
+        @keyframes callPulse { 0%,100%{box-shadow:0 0 0 0 var(--glow-purple)} 50%{box-shadow:0 0 30px 10px var(--glow-purple)} }
+        .call-caller-name { color:var(--text-primary); font-size:1.3rem; font-weight:700; }
+        .call-caller-sub { color:var(--text-secondary); font-size:0.9rem; }
+        .call-actions-row { display:flex; gap:24px; margin-top:10px; }
+        .call-action-btn {
+            width:64px; height:64px; border-radius:50%; border:none; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; font-size:1.5rem;
+            transition:0.2s; box-shadow:0 4px 20px rgba(0,0,0,0.3);
+        }
+        .call-action-btn:active { transform:scale(0.9); }
+        .btn-accept-call { background:linear-gradient(135deg,var(--accent-emerald),#059669); color:#fff; }
+        .btn-reject-call { background:linear-gradient(135deg,var(--accent-red),#dc2626); color:#fff; }
 
         /* ===== Lobby ===== */
         #lobby {
@@ -255,8 +345,6 @@
         @keyframes leavePulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.3)} 50%{box-shadow:0 0 12px 2px rgba(239,68,68,0.2)} }
         #emoji-picker::-webkit-scrollbar { width:4px; }
         #emoji-picker::-webkit-scrollbar-thumb { background:var(--text-muted); border-radius:4px; }
-        #c-emoji { flex-shrink:0; }
-        #c-emoji:hover { background:rgba(59,130,246,0.1) !important; }
         .hidden { display:none !important; }
 
         /* Size buttons */
@@ -326,7 +414,7 @@
         /* ===== Mobile ===== */
         @media (max-width:768px) {
             #chat {
-                position:fixed; left:0; top:0; bottom:0; width:280px;
+                position:fixed; left:0; top:0; bottom:0; width:85vw; max-width:320px;
                 transform:translateX(-100%); transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
                 z-index:50; box-shadow:5px 0 30px rgba(0,0,0,0.2);
                 border-left:none; border-right:none;
@@ -341,6 +429,11 @@
                 transition:all 0.2s;
             }
             #chat-toggle:active { transform:scale(0.92); }
+            #chat-input-row input { font-size:0.95rem; padding:10px 14px; }
+            #c-emoji, #c-send { width:42px; height:42px; font-size:1.1rem; }
+            .chat-tool-btn { padding:8px 4px; font-size:0.8rem; }
+            #voice-call-bar .call-info { font-size:0.85rem; }
+            #voice-call-bar .call-actions button { width:36px; height:36px; }
             #header { padding:4px 10px; gap:2px 6px; }
             #logo { font-size:0.85rem; }
             #scores { gap:6px; font-size:0.75rem; }
@@ -365,9 +458,12 @@
             #player-names { font-size:0.55rem; }
             #conn-status { font-size:0.6rem; }
             .cell { width:24px; height:24px; font-size:13px; }
-            #chat { width:260px; }
+            #chat { width:85vw; max-width:300px; }
             #lobby-box { padding:16px; }
             .size-btn { padding:6px 12px; font-size:0.8rem; }
+            .call-avatar { width:70px; height:70px; font-size:2rem; }
+            .call-caller-name { font-size:1.1rem; }
+            .call-action-btn { width:56px; height:56px; font-size:1.3rem; }
         }
         @media (min-width:769px) { #chat-toggle { display:none; } }
 
@@ -661,11 +757,27 @@
         <div id="board-container"><div id="board"></div></div>
         <div id="chat">
             <div id="chat-head"><span>💬 الدردشة</span><span class="chatter" id="chat-status"></span></div>
+            <div id="chat-toolbar">
+                <button class="chat-tool-btn" id="btn-voice-call">📞 اتصال صوتي</button>
+            </div>
             <div id="chat-msgs"></div>
-            <div id="chat-input">
-                <button id="c-emoji" type="button" style="padding:7px 10px;background:none;border:1px solid var(--border-color);border-radius:20px;cursor:pointer;font-size:1.1rem;line-height:1;transition:0.15s;">😊</button>
-                <input type="text" id="c-txt" placeholder="رسالة..." maxlength="120" disabled>
-                <button id="c-send" disabled>➤</button>
+            <div id="voice-call-bar">
+                <div class="call-info">
+                    <span>📞</span>
+                    <span id="call-status-text">متصل</span>
+                    <span class="call-timer" id="call-timer">00:00</span>
+                </div>
+                <div class="call-actions">
+                    <button class="btn-mute" id="btn-mute" title="كتم">🎤</button>
+                    <button class="btn-hangup" id="btn-hangup" title="إنهاء المكالمة">📞</button>
+                </div>
+            </div>
+            <div id="chat-input-area">
+                <div id="chat-input-row">
+                    <button id="c-emoji" type="button">😊</button>
+                    <input type="text" id="c-txt" placeholder="رسالة..." maxlength="120" disabled>
+                    <button id="c-send" disabled>➤</button>
+                </div>
             </div>
             <div id="emoji-picker" style="display:none;padding:6px 8px;background:var(--bg-primary);border-top:1px solid var(--border-color);max-height:160px;overflow-y:auto;flex-shrink:0;">
                 <div id="emoji-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;text-align:center;"></div>
@@ -692,6 +804,17 @@
                 <button id="btn-leave-game" class="btn-leave">🚪 مغادرة اللعبة</button>
                 <button id="btn-close-modal" class="btn-ghost">✕ إغلاق</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Incoming Call Overlay -->
+    <div id="incoming-call-overlay">
+        <div class="call-avatar">📞</div>
+        <div class="call-caller-name" id="caller-name">الخصم</div>
+        <div class="call-caller-sub">اتصال صوتي وارد...</div>
+        <div class="call-actions-row">
+            <button class="call-action-btn btn-reject-call" id="btn-reject-call">📞</button>
+            <button class="call-action-btn btn-accept-call" id="btn-accept-call">✅</button>
         </div>
     </div>
 
@@ -1143,6 +1266,8 @@
         id('btn-rematch-yes').onclick = () => { acceptRematch(); updateRematchBtn(); };
         id('btn-close-modal').onclick = () => { id('modal').style.display = 'none'; };
         id('btn-leave-game').onclick = () => {
+            // End voice call if active
+            if (typeof resetCall === 'function' && callState !== 'idle') resetCall();
             // Send leave notification to opponent
             try {
                 if (conn && conn.open) conn.send({type:'leave'});
@@ -1216,6 +1341,262 @@
                 id('emoji-picker').style.display = 'none';
             }
         });
+
+        // ========== Voice Call System (WebRTC + ntfy.sh signaling) ==========
+        const ICE_SERVERS = [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' }
+        ];
+        let voicePC = null;       // RTCPeerConnection
+        let localStream = null;   // Local audio stream
+        let remoteStream = null;  // Remote audio stream
+        let callState = 'idle';   // idle | calling | ringing | connected
+        let callTimerInterval = null;
+        let callStartTime = 0;
+        let isMuted = false;
+
+        function sendCallSignal(data) {
+            // Send signaling data through the existing ntfy.sh connection
+            if (conn && conn.open) {
+                conn.send({ type: 'voice_signal', signal: data });
+            } else if (mpNftyConn && mpNftyConn.open) {
+                mpNftyConn.send({ type: 'voice_signal', signal: data, mpPid: mpState.myId || '' });
+            }
+        }
+
+        async function startVoiceCall() {
+            if (callState !== 'idle') return;
+            if (gameMode === 'ai') { addMsg('sys', '⚠️ لا يمكن الاتصال بالكمبيوتر'); return; }
+            if (!conn && !mpNftyConn) { addMsg('sys', '⚠️ لا يوجد اتصال بالخصم'); return; }
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                callState = 'calling';
+                updateCallUI();
+                addMsg('sys', '📞 جاري الاتصال...');
+
+                voicePC = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+                setupPeerConnection();
+
+                localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
+
+                const offer = await voicePC.createOffer();
+                await voicePC.setLocalDescription(offer);
+
+                // Send offer through ntfy.sh
+                sendCallSignal({ type: 'offer', sdp: voicePC.localDescription });
+            } catch (e) {
+                console.error('Voice call error:', e);
+                addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
+                resetCall();
+            }
+        }
+
+        function setupPeerConnection() {
+            voicePC.onicecandidate = (event) => {
+                if (event.candidate) {
+                    sendCallSignal({ type: 'ice-candidate', candidate: event.candidate });
+                }
+            };
+
+            voicePC.ontrack = (event) => {
+                remoteStream = event.streams[0];
+                // Play remote audio
+                let audioEl = document.getElementById('remote-audio');
+                if (!audioEl) {
+                    audioEl = document.createElement('audio');
+                    audioEl.id = 'remote-audio';
+                    audioEl.autoplay = true;
+                    document.body.appendChild(audioEl);
+                }
+                audioEl.srcObject = remoteStream;
+            };
+
+            voicePC.oniceconnectionstatechange = () => {
+                if (voicePC) {
+                    const state = voicePC.iceConnectionState;
+                    if (state === 'connected' || state === 'completed') {
+                        if (callState !== 'connected') {
+                            callState = 'connected';
+                            callStartTime = Date.now();
+                            startCallTimer();
+                            updateCallUI();
+                            addMsg('sys', '✅ تم الاتصال صوتياً');
+                        }
+                    } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+                        if (callState === 'connected') {
+                            addMsg('sys', '📞 انقطع الاتصال الصوتي');
+                            resetCall();
+                        }
+                    }
+                }
+            };
+        }
+
+        async function handleVoiceSignal(data) {
+            const signal = data.signal || data;
+            if (!signal || !signal.type) return;
+
+            if (signal.type === 'offer') {
+                // Incoming call
+                if (callState !== 'idle') {
+                    sendCallSignal({ type: 'reject', reason: 'busy' });
+                    return;
+                }
+                callState = 'ringing';
+                updateCallUI();
+                id('caller-name').textContent = opponentName || 'الخصم';
+                id('incoming-call-overlay').classList.add('show');
+                // Store offer for later
+                window._pendingOffer = signal.sdp;
+            }
+            else if (signal.type === 'answer') {
+                // Call was accepted
+                if (voicePC && voicePC.signalingState === 'have-local-offer') {
+                    await voicePC.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+                }
+            }
+            else if (signal.type === 'ice-candidate') {
+                if (voicePC && signal.candidate) {
+                    try {
+                        await voicePC.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                    } catch (e) { console.error('ICE candidate error:', e); }
+                }
+            }
+            else if (signal.type === 'reject') {
+                // Call was rejected
+                addMsg('sys', '📞 رفض الخصم الاتصال');
+                resetCall();
+            }
+            else if (signal.type === 'hangup') {
+                addMsg('sys', '📞 أنهى الخصم المكالمة');
+                resetCall();
+            }
+        }
+
+        async function acceptIncomingCall() {
+            id('incoming-call-overlay').classList.remove('show');
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                voicePC = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+                setupPeerConnection();
+
+                localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
+
+                await voicePC.setRemoteDescription(new RTCSessionDescription(window._pendingOffer));
+                const answer = await voicePC.createAnswer();
+                await voicePC.setLocalDescription(answer);
+
+                sendCallSignal({ type: 'answer', sdp: voicePC.localDescription });
+                callState = 'connected';
+                callStartTime = Date.now();
+                startCallTimer();
+                updateCallUI();
+                addMsg('sys', '✅ تم الاتصال صوتياً');
+            } catch (e) {
+                console.error('Accept call error:', e);
+                addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
+                sendCallSignal({ type: 'reject', reason: 'error' });
+                resetCall();
+            }
+        }
+
+        function rejectIncomingCall() {
+            id('incoming-call-overlay').classList.remove('show');
+            sendCallSignal({ type: 'reject', reason: 'declined' });
+            callState = 'idle';
+            updateCallUI();
+            addMsg('sys', '📞 تم رفض الاتصال');
+        }
+
+        function hangupCall() {
+            sendCallSignal({ type: 'hangup' });
+            addMsg('sys', '📞 تم إنهاء المكالمة');
+            resetCall();
+        }
+
+        function toggleMute() {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(track => { track.enabled = !isMuted; });
+            const muteBtn = id('btn-mute');
+            muteBtn.textContent = isMuted ? '🔇' : '🎤';
+            muteBtn.classList.toggle('muted', isMuted);
+            muteBtn.title = isMuted ? 'إلغاء الكتم' : 'كتم';
+        }
+
+        function resetCall() {
+            if (voicePC) {
+                voicePC.close();
+                voicePC = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            remoteStream = null;
+            const audioEl = document.getElementById('remote-audio');
+            if (audioEl) { audioEl.srcObject = null; }
+            callState = 'idle';
+            isMuted = false;
+            window._pendingOffer = null;
+            clearInterval(callTimerInterval);
+            callTimerInterval = null;
+            updateCallUI();
+        }
+
+        function startCallTimer() {
+            clearInterval(callTimerInterval);
+            callTimerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+                const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                const secs = String(elapsed % 60).padStart(2, '0');
+                id('call-timer').textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function updateCallUI() {
+            const callBtn = id('btn-voice-call');
+            const callBar = id('voice-call-bar');
+            const muteBtn = id('btn-mute');
+
+            callBtn.className = 'chat-tool-btn';
+            callBar.classList.remove('active');
+
+            switch (callState) {
+                case 'idle':
+                    callBtn.textContent = '📞 اتصال صوتي';
+                    break;
+                case 'calling':
+                    callBtn.textContent = '📡 جاري الاتصال...';
+                    callBtn.classList.add('call-ringing');
+                    break;
+                case 'ringing':
+                    callBtn.textContent = '📞 مكالمة واردة!';
+                    callBtn.classList.add('call-ringing');
+                    break;
+                case 'connected':
+                    callBtn.textContent = '📞 متصل';
+                    callBtn.classList.add('call-active');
+                    callBar.classList.add('active');
+                    id('call-status-text').textContent = 'متصل';
+                    muteBtn.textContent = isMuted ? '🔇' : '🎤';
+                    muteBtn.classList.toggle('muted', isMuted);
+                    break;
+            }
+        }
+
+        // Voice call button handlers
+        id('btn-voice-call').onclick = () => {
+            if (callState === 'idle') startVoiceCall();
+            else if (callState === 'calling') hangupCall();
+        };
+        id('btn-hangup').onclick = hangupCall;
+        id('btn-mute').onclick = toggleMute;
+        id('btn-accept-call').onclick = acceptIncomingCall;
+        id('btn-reject-call').onclick = rejectIncomingCall;
 
         // Surrender button
         id('btn-surrender').onclick = () => {
@@ -1359,6 +1740,9 @@
                 case 'chat':
                     addMsg('other', data.msg);
                     break;
+                case 'voice_signal':
+                    handleVoiceSignal(data);
+                    break;
                 case 'game_end':
                     scores = data.scores; if (data.used) used = data.used;
                     gameOver = true; updateScoreUI(); syncBoardUI(); showEnd(); updateTurnUI(); updateLeaveBtn();
@@ -1410,6 +1794,8 @@
         }
 
         function handleDisconnect() {
+            // End voice call if active
+            if (typeof resetCall === 'function' && callState !== 'idle') resetCall();
             const opp = opponentName || 'الخصم';
             updateConnUI(false, 'انقطع');
             addMsg('sys', `⚠️ انقطع اتصال ${opp}`);
@@ -1580,6 +1966,14 @@
         // Send disconnect notification when page is closed
         window.addEventListener('beforeunload', () => {
             try {
+                // End voice call if active
+                if (callState !== 'idle' && conn && conn.open) {
+                    const hangupMsg = JSON.stringify({sender: conn.senderId, target: '', payload: {type: 'voice_signal', signal: {type: 'hangup'}}});
+                    navigator.sendBeacon(`https://ntfy.sh/${conn.topic}`, hangupMsg);
+                } else if (callState !== 'idle' && mpNftyConn && mpNftyConn.open) {
+                    const hangupMsg = JSON.stringify({sender: mpNftyConn.senderId, target: '', payload: {type: 'voice_signal', signal: {type: 'hangup'}, mpPid: mpState.myId}});
+                    navigator.sendBeacon(`https://ntfy.sh/${mpNftyConn.topic}`, hangupMsg);
+                }
                 if (conn && conn.open) {
                     const msg = JSON.stringify({sender: conn.senderId, target: '', payload: {type: 'leave'}});
                     navigator.sendBeacon(`https://ntfy.sh/${conn.topic}`, msg);
@@ -2074,6 +2468,9 @@
                         mpBroadcast({type:'mp_match_move', r:-1, c:-1, p:winner, pts:0, scores, cur:curPlayer, used, surrender:true});
                         mpEndMatch(scores, winner);
                     }
+                    break;
+                case 'voice_signal':
+                    handleVoiceSignal(data);
                     break;
                 case 'mp_personal_code':
                     if (data.code && /^\d{3}$/.test(data.code)) {
