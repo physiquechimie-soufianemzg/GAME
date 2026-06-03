@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Quintet 30 - لعبة 5 في صف</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- PeerJS removed - using ntfy.sh for networking -->
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; -webkit-tap-highlight-color:transparent; }
         body {
@@ -417,9 +417,7 @@
                 <div style="margin-top:4px;">
                     <button id="btn-adv" style="background:none;border:none;color:#3498db;cursor:pointer;font-size:0.8rem;">⚙️ إعدادات متقدمة</button>
                     <div id="adv-settings" class="hidden" style="margin-top:6px;padding:8px;background:#f8f9fa;border-radius:8px;text-align:right;">
-                        <label style="font-size:0.8rem;color:#555;display:block;margin-bottom:3px;">خادم PeerJS:</label>
-                        <input type="text" id="peer-server-input" value="" placeholder="تلقائي (اتركه فارغاً)" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.8rem;direction:ltr;text-align:left;font-family:monospace;">
-                        <div style="font-size:0.75rem;color:#888;margin-top:4px;">اتركه فارغاً ليتم اختيار الخادم تلقائياً. أو أدخل خادم مخصص مثل: peerjs.jns42.com</div>
+                        <div style="font-size:0.8rem;color:#555;margin-bottom:6px;">🌐 يتم الاتصال عبر <b>ntfy.sh</b> (HTTPS) - لا حاجة لخادم إشارات</div>
                         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
                             <button id="btn-test-peer" style="padding:4px 10px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.75rem;">🔍 اختبار الاتصال</button>
                             <span id="test-peer-result" style="font-size:0.75rem;margin-right:6px;"></span>
@@ -673,11 +671,11 @@
         let gridSize = 30, CELL = 28, WIN = 5;
         let board, used, curPlayer, scores, moves, zoom, winLines;
         let isHost = false, mySym = 'X', myName = '', opponentName = '';
-        let peer = null, conn = null, roomCode = '';
+        let conn = null, roomCode = '';
         let gameOver = false, gameMode = 'p2p';
         let rematchRequested = false, opponentRematchRequested = false;
         let nameConfirmed = false, opponentNameConfirmed = false;
-        let peerServer = '0.peerjs.com';
+        let mpNftyConn = null; // NftyConn for multiplayer mode
 
         function initGameState() {
             board = Array.from({length:gridSize},()=>Array(gridSize).fill(null));
@@ -1120,7 +1118,7 @@
                     mpBroadcast({type:'mp_match_move', r:-1, c:-1, p:winner, pts:0, scores, cur:curPlayer, used, surrender:true});
                     mpEndMatch(scores, winner === 'X' ? 'X' : 'O');
                 } else {
-                    try { mpState.myConn.send({type:'mp_surrender', p}); } catch(e) {}
+                    try { mpNftyConn.send({type:'mp_surrender', p, mpPid: mpState.myId}); } catch(e) {}
                 }
             } else if (gameMode !== 'ai') {
                 if (conn && conn.open) conn.send({type:'surrender', p, scores:{...scores}});
@@ -1213,6 +1211,10 @@
                         id('name-size-txt2').textContent = gridSize;
                         initGameState();
                         renderBoard();
+                        // Show name phase for guest (host does this in setupConnection)
+                        connLog('✅ تم استلام إعدادات اللعبة من المضيف');
+                        id('lobby').classList.remove('hidden');
+                        showNamePhase();
                     }
                     break;
                 case 'name_confirm':
@@ -1270,6 +1272,12 @@
                 case 'cancel':
                     handleDisconnect();
                     break;
+                case 'leave':
+                    handleDisconnect();
+                    break;
+                case 'ping':
+                    // Keep-alive from host, ignore
+                    break;
                 case 'reset':
                     doResetGame();
                     break;
@@ -1319,7 +1327,7 @@
         }
 
         // ========== Lobby Actions ==========
-        function genCode() { return String(Math.floor(100 + Math.random() * 900)); }
+        function genCode() { return String(Math.floor(1000 + Math.random() * 9000)); }
 
         // ========== Grid Size Selection ==========
         document.querySelectorAll('.size-btn').forEach(btn => {
@@ -1345,38 +1353,128 @@
             };
         });
 
-        // ========== Robust Connection System ==========
+        // ========== ntfy.sh Networking System ==========
 
-        // ICE servers for NAT traversal (STUN + TURN)
-        const iceServers = [
-            // Google STUN servers - discover public IP
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            // Cloudflare STUN
-            { urls: 'stun:stun.cloudflare.com:3478' },
-            // Twilio STUN
-            { urls: 'stun:global.stun.twilio.com:3478' },
-            // Free TURN relay servers - essential for cross-network (NAT traversal)
-            // Open Relay Project by Metered.ca
-            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-            // Backup TURN - eNebula (free tier)
-            { urls: 'turn:eu-turn1.xirsys.com:3478?transport=udp', username: 'xirsys_viki', credential: '4c4f1c88-f782-11ee-b38c-0242ac120004' },
-            { urls: 'turn:eu-turn1.xirsys.com:443?transport=tcp', username: 'xirsys_viki', credential: '4c4f1c88-f782-11ee-b38c-0242ac120004' },
-        ];
+        // NftyConn: Communication class using ntfy.sh pub/sub messaging
+        // Replaces PeerJS DataConnection with HTTPS-based messaging
+        class NftyConn {
+            constructor(topic, senderId, isHost) {
+                this.topic = topic;
+                this.senderId = senderId;
+                this.isHost = isHost;
+                this.open = false;
+                this._es = null;
+                this._handlers = {};
+                this._aliveInterval = null;
+                this._reconnectInterval = null;
+            }
 
-        // Signaling servers - CRITICAL: both peers MUST use the same server
-        const peerServers = [
-            { host: '0.peerjs.com', port: 443, secure: true },
-            { host: '1.peerjs.com', port: 443, secure: true },
-            { host: '2.peerjs.com', port: 443, secure: true },
-            { host: '3.peerjs.com', port: 443, secure: true },
-        ];
-        let hostServerIdx = 0; // which server the host used (embedded in room code)
+            on(event, handler) {
+                if (!this._handlers[event]) this._handlers[event] = [];
+                this._handlers[event].push(handler);
+            }
+
+            off(event, handler) {
+                if (!this._handlers[event]) return;
+                this._handlers[event] = this._handlers[event].filter(h => h !== handler);
+            }
+
+            _emit(event, ...args) {
+                if (this._handlers[event]) {
+                    this._handlers[event].forEach(h => {
+                        try { h(...args); } catch(e) { console.error('NftyConn handler error:', e); }
+                    });
+                }
+            }
+
+            send(data) {
+                if (!this.open) return;
+                const msg = JSON.stringify({sender: this.senderId, target: '', payload: data});
+                fetch(`https://ntfy.sh/${this.topic}`, {
+                    method: 'POST',
+                    body: msg
+                }).catch(e => console.error('ntfy send failed:', e));
+            }
+
+            sendDirect(targetId, data) {
+                if (!this.open) return;
+                const msg = JSON.stringify({sender: this.senderId, target: targetId, payload: data});
+                fetch(`https://ntfy.sh/${this.topic}`, {
+                    method: 'POST',
+                    body: msg
+                }).catch(e => console.error('ntfy sendDirect failed:', e));
+            }
+
+            subscribe() {
+                if (this._es) this._es.close();
+                this._seenIds = new Set(); // dedup messages from since= parameter
+                // since=5m: get messages from last 5 minutes on reconnect
+                this._es = new EventSource(`https://ntfy.sh/${this.topic}/sse?since=5m`);
+                this._es.onmessage = (event) => {
+                    try {
+                        const raw = JSON.parse(event.data);
+                        if (raw.event && raw.event !== 'message') return;
+                        // Dedup: skip if we've seen this message ID before
+                        if (raw.id) {
+                            if (this._seenIds.has(raw.id)) return;
+                            this._seenIds.add(raw.id);
+                            // Keep set from growing too large
+                            if (this._seenIds.size > 500) {
+                                const arr = [...this._seenIds];
+                                this._seenIds = new Set(arr.slice(-250));
+                            }
+                        }
+                        const msg = JSON.parse(raw.message);
+                        // Ignore own messages
+                        if (msg.sender === this.senderId) return;
+                        // If targeted and not for us, ignore
+                        if (msg.target && msg.target !== this.senderId) return;
+                        // Emit data event with the payload
+                        this._emit('data', msg.payload);
+                    } catch(e) {}
+                };
+                this._es.onerror = () => {
+                    // Don't emit error on every reconnect attempt - EventSource auto-reconnects
+                    connLog('⚠️ SSE connection interrupted, auto-reconnecting...');
+                };
+                this.open = true;
+                this._emit('open');
+
+                // Keep-alive: host sends periodic ping to show room is active
+                if (this.isHost) {
+                    this._aliveInterval = setInterval(() => {
+                        this.send({type: 'ping'});
+                    }, 25000);
+                }
+            }
+
+            close() {
+                if (this._es) { this._es.close(); this._es = null; }
+                if (this._aliveInterval) { clearInterval(this._aliveInterval); this._aliveInterval = null; }
+                if (this._reconnectInterval) { clearInterval(this._reconnectInterval); this._reconnectInterval = null; }
+                this.open = false;
+                this._emit('close');
+            }
+
+            destroy() {
+                this.close();
+            }
+        }
+
+        // Send disconnect notification when page is closed
+        window.addEventListener('beforeunload', () => {
+            try {
+                if (conn && conn.open) {
+                    const msg = JSON.stringify({sender: conn.senderId, target: '', payload: {type: 'leave'}});
+                    navigator.sendBeacon(`https://ntfy.sh/${conn.topic}`, msg);
+                }
+                if (mpNftyConn && mpNftyConn.open) {
+                    const msg = JSON.stringify({sender: mpNftyConn.senderId, target: '', payload: {type: 'mp_leave', mpPid: mpState.myId}});
+                    navigator.sendBeacon(`https://ntfy.sh/${mpNftyConn.topic}`, msg);
+                }
+            } catch(e) {}
+        });
+
         let connDebugLog = [];
 
         function connLog(msg) {
@@ -1388,300 +1486,129 @@
             if (dbg) dbg.textContent = connDebugLog.join('\n');
         }
 
-        // Build PeerJS options with ICE servers for a specific server index
-        function getPeerOpts(serverIdx) {
-            const custom = id('peer-server-input').value.trim();
-            const base = { config: { iceServers }, debug: 1 };
-            if (custom) {
-                peerServer = custom;
-                if (custom.includes(':')) {
-                    const sp = custom.split(':');
-                    return { ...base, host: sp[0], port: parseInt(sp[1]) || 9000, secure: false };
-                }
-                return { ...base, host: custom, port: 443, secure: true };
+        // Test ntfy.sh connectivity
+        async function testNftyConnection() {
+            try {
+                const testTopic = 'qt5test-' + Math.random().toString(36).substr(2,6);
+                const r = await fetch(`https://ntfy.sh/${testTopic}`, {
+                    method: 'POST',
+                    body: 'connectivity_test'
+                });
+                return r.ok;
+            } catch(e) {
+                return false;
             }
-            const s = peerServers[serverIdx || 0] || peerServers[0];
-            peerServer = s.host;
-            return { ...base, host: s.host, port: s.port, secure: s.secure };
-        }
-
-        // Encode server index into room code so joiner knows which server to use
-        // Format: SCCC where S=server index (1-4), CCC=random 3-digit number
-        // This ensures both peers use the SAME signaling server
-        function encodeRoomCode(code, serverIdx) {
-            return String(serverIdx + 1) + code; // e.g. "1234" = server 0, code "234"
-        }
-        function decodeRoomCode(fullCode) {
-            if (fullCode.length === 4) {
-                const sIdx = parseInt(fullCode[0]) - 1;
-                const code = fullCode.substring(1);
-                if (sIdx >= 0 && sIdx < peerServers.length && /^\d{3}$/.test(code)) {
-                    return { serverIdx: sIdx, code: code };
-                }
-            }
-            // Old format: 3 digits, default to server 0
-            return { serverIdx: 0, code: fullCode };
-        }
-
-        // Test a specific PeerJS signaling server
-        function testPeerServer(serverIdx) {
-            return new Promise((resolve) => {
-                const opts = getPeerOpts(serverIdx);
-                const testId = 'qt' + Math.random().toString(36).substr(2,6);
-                const p = new Peer(testId, opts);
-                const t = setTimeout(() => { p.destroy(); resolve(false); }, 8000);
-                p.on('open', () => { clearTimeout(t); p.destroy(); resolve(true); });
-                p.on('error', (err) => { clearTimeout(t); p.destroy(); resolve(err.type === 'unavailable-id'); });
-            });
         }
 
         // ===== HOST: Create room =====
-        // Tries servers one by one, encodes the working server index into room code
         async function tryCreatePeer(code, retry) {
-            if (retry > 12) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة'; id('status-msg').className = 'status-error'; return; }
+            if (retry > 5) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة. تحقق من اتصال الإنترنت'; id('status-msg').className = 'status-error'; return; }
             id('status-msg').textContent = '🔄 جاري إنشاء الغرفة...';
             id('status-msg').className = 'status-wait';
             connLog(`إنشاء غرفة: كود=${code}, محاولة=${retry}`);
 
-            const custom = id('peer-server-input').value.trim();
-            let serverIdx = 0;
-
-            if (!custom) {
-                // Try each server until one works
-                for (let i = 0; i < peerServers.length; i++) {
-                    connLog(`⏳ اختبار ${peerServers[i].host}...`);
-                    const ok = await testPeerServer(i);
-                    if (ok) { serverIdx = i; connLog(`✅ ${peerServers[i].host} متاح`); break; }
-                    connLog(`❌ ${peerServers[i].host} غير متاح`);
-                }
+            // Test ntfy.sh connectivity
+            const ok = await testNftyConnection();
+            if (!ok) {
+                connLog('❌ ntfy.sh غير متاح');
+                setTimeout(() => tryCreatePeer(genCode(), retry + 1), 1000);
+                return;
             }
 
-            const opts = getPeerOpts(serverIdx);
-            const p = new Peer(code, opts);
-            peer = p;
-            hostServerIdx = serverIdx;
+            const topic = 'qt5-' + code;
+            const senderId = 'h' + Math.random().toString(36).substr(2,8);
 
-            p.on('open', id2 => {
-                if (id2 === code) {
-                    roomCode = code;
-                    // Show encoded room code (includes server index)
-                    const displayCode = encodeRoomCode(code, serverIdx);
-                    id('room-id').textContent = displayCode;
-                    id('phase-choose').classList.add('hidden');
-                    id('phase-host').classList.remove('hidden');
-                    id('host-size-txt').textContent = `${gridSize}×${gridSize}`;
-                    id('status-msg').textContent = '';
-                    updateConnUI(true, 'متصل');
-                    connLog(`✅ غرفة ${displayCode} على ${peerServer} (خادم ${serverIdx})`);
-                }
-            });
-            p.on('error', err => {
-                connLog(`❌ خطأ: ${err.type}`);
-                if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
-                    p.destroy(); const nc = genCode();
-                    setTimeout(() => tryCreatePeer(nc, retry + 1), 300);
-                } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
-                    p.destroy();
-                    // Try next server
-                    hostServerIdx = (serverIdx + 1) % peerServers.length;
-                    setTimeout(() => tryCreatePeerWithServer(code, hostServerIdx, retry + 1), 500);
-                } else {
-                    id('status-msg').textContent = `❌ ${err.type}`;
-                    id('status-msg').className = 'status-error';
-                }
-            });
-            p.on('connection', c => {
-                conn = c; isHost = true; mySym = 'X';
-                connLog('📥 اتصال وارد من لاعب');
-                c.on('open', () => {
-                    c.send({type:'game_config', gridSize, hostName:''});
-                    setupConnection();
-                });
-                monitorICE(p, c);
-            });
-        }
+            roomCode = code;
+            conn = new NftyConn(topic, senderId, true);
+            isHost = true; mySym = 'X';
 
-        // Create with specific server (for retry)
-        function tryCreatePeerWithServer(code, serverIdx, retry) {
-            if (retry > 12) { id('status-msg').textContent = '❌ فشل إنشاء الغرفة'; id('status-msg').className = 'status-error'; return; }
-            const opts = getPeerOpts(serverIdx);
-            const p = new Peer(code, opts);
-            peer = p;
-            hostServerIdx = serverIdx;
-            p.on('open', id2 => {
-                if (id2 === code) {
-                    roomCode = code;
-                    const displayCode = encodeRoomCode(code, serverIdx);
-                    id('room-id').textContent = displayCode;
-                    id('phase-choose').classList.add('hidden');
-                    id('phase-host').classList.remove('hidden');
-                    id('host-size-txt').textContent = `${gridSize}×${gridSize}`;
-                    id('status-msg').textContent = '';
-                    updateConnUI(true, 'متصل');
-                    connLog(`✅ غرفة ${displayCode} على ${peerServer}`);
-                }
-            });
-            p.on('error', err => {
-                connLog(`❌ خطأ: ${err.type}`);
-                if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
-                    p.destroy(); const nc = genCode();
-                    const nextIdx = (serverIdx + 1) % peerServers.length;
-                    setTimeout(() => tryCreatePeerWithServer(nc, nextIdx, retry + 1), 300);
-                } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
-                    p.destroy();
-                    const nextIdx = (serverIdx + 1) % peerServers.length;
-                    setTimeout(() => tryCreatePeerWithServer(code, nextIdx, retry + 1), 500);
-                } else {
-                    id('status-msg').textContent = `❌ ${err.type}`;
-                    id('status-msg').className = 'status-error';
-                }
-            });
-            p.on('connection', c => {
-                conn = c; isHost = true; mySym = 'X';
-                connLog('📥 اتصال وارد');
-                c.on('open', () => {
-                    c.send({type:'game_config', gridSize, hostName:''});
+            // Handler for incoming join requests
+            let joinHandled = false;
+            const joinHandler = (data) => {
+                if (joinHandled) return;
+                if (data.type === 'join_request') {
+                    joinHandled = true;
+                    connLog('📥 طلب انضمام وارد من لاعب');
+                    // Send game_config as targeted message to the joining player
+                    const guestSenderId = data.joinSenderId || '';
+                    if (guestSenderId) {
+                        conn.sendDirect(guestSenderId, {type:'game_config', gridSize, hostName:''});
+                    } else {
+                        conn.send({type:'game_config', gridSize, hostName:''});
+                    }
                     setupConnection();
-                });
-                monitorICE(p, c);
-            });
+                }
+            };
+            conn.on('data', joinHandler);
+            conn.subscribe();
+
+            // Show room code
+            id('room-id').textContent = code;
+            id('phase-choose').classList.add('hidden');
+            id('phase-host').classList.remove('hidden');
+            id('host-size-txt').textContent = `${gridSize}×${gridSize}`;
+            id('status-msg').textContent = '';
+            updateConnUI(true, 'متصل');
+            connLog(`✅ غرفة ${code} تم إنشاؤها عبر ntfy.sh`);
         }
 
         // ===== JOIN: Connect to room =====
-        // Decodes server index from room code, connects to SAME server as host
-        // Then tries ALL servers if host's peer ID is not found
         async function tryJoin(fullCode) {
-            const decoded = decodeRoomCode(fullCode);
-            const { serverIdx: targetServer, code } = decoded;
-            connLog(`الانضمام: كود كامل=${fullCode}, كود=${code}, خادم=${targetServer} (${peerServers[targetServer]?.host || 'مخصص'})`);
-            id('status-msg').textContent = '🔄 جاري الاتصال بخادم المضيف...';
+            const code = fullCode;
+            connLog(`الانضمام: كود=${code}`);
+            id('status-msg').textContent = '🔄 جاري الاتصال بالغرفة...';
             id('status-msg').className = 'status-wait';
 
-            // First: try the exact server the host used
-            tryJoinOnServer(code, targetServer, 0, fullCode);
-        }
-
-        let joinRetryCount = 0;
-        function tryJoinOnServer(code, serverIdx, attempt, originalFullCode) {
-            if (attempt > peerServers.length) {
-                id('status-msg').textContent = '❌ الغرفة غير موجودة على أي خادم. تأكد أن المضيف أنشأ الغرفة وأن الكود صحيح';
+            // Test ntfy.sh connectivity first
+            const ok = await testNftyConnection();
+            if (!ok) {
+                id('status-msg').textContent = '❌ لا يمكن الاتصال بـ ntfy.sh. تحقق من الإنترنت';
                 id('status-msg').className = 'status-error';
-                joinRetryCount = 0;
                 return;
             }
-            connLog(`محاولة ${attempt + 1}: الاتصال بالخادم ${peerServers[serverIdx]?.host || serverIdx} للبحث عن الغرفة ${code}`);
-            id('status-msg').textContent = `🔄 جاري الاتصال (${peerServers[serverIdx]?.host || 'خادم ' + serverIdx})...`;
-            id('status-msg').className = 'status-wait';
 
-            const opts = getPeerOpts(serverIdx);
-            const p = new Peer(opts);
-            peer = p;
-            const signalTimeout = setTimeout(() => {
-                if (!peer || !peer.open) {
-                    connLog(`⏳ الخادم ${peerServers[serverIdx]?.host} لا يستجيب`);
-                    p.destroy(); peer = null;
-                    // Try next server
-                    const nextIdx = (serverIdx + 1) % peerServers.length;
-                    tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode);
-                }
-            }, 10000);
+            const topic = 'qt5-' + code;
+            const senderId = 'g' + Math.random().toString(36).substr(2,8);
 
-            p.on('open', () => {
-                clearTimeout(signalTimeout);
-                connLog(`✅ متصل بخادم الإشارات ${peerServer}، جاري البحث عن الغرفة ${code}...`);
-                id('status-msg').textContent = '🔄 جاري الاتصال بالغرفة...';
+            conn = new NftyConn(topic, senderId, false);
+            isHost = false; mySym = 'O';
 
-                const c = p.connect(code, { reliable: true, timeout: 20000 });
-                conn = c;
+            // Set up data handler BEFORE subscribing
+            conn.on('data', handleData);
+            conn.on('close', handleDisconnect);
+            conn.on('error', handleDisconnect);
 
-                const dataTimeout = setTimeout(() => {
-                    if (!c.open) {
-                        connLog(`⏳ لم يتم العثور على الغرفة ${code} على ${peerServer}`);
-                        p.destroy(); peer = null;
-                        // Try next server
-                        const nextIdx = (serverIdx + 1) % peerServers.length;
-                        tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode);
-                    }
-                }, 20000);
+            conn.subscribe();
 
-                c.on('open', () => {
-                    clearTimeout(dataTimeout);
-                    joinRetryCount = 0;
-                    isHost = false; mySym = 'O';
-                    connLog('✅ تم الاتصال بالغرفة بنجاح!');
-                    setupConnection();
-                    monitorICE(p, c);
-                });
-
-                c.on('error', err => {
-                    clearTimeout(dataTimeout);
-                    connLog(`❌ خطأ اتصال: ${err.type}`);
-                    if (err.type === 'peer-unavailable') {
-                        // Host not on this server - try next
-                        connLog(`🔍 الغرفة ${code} غير موجودة على ${peerServer}، جاري تجربة خادم آخر...`);
-                        p.destroy(); peer = null;
-                        const nextIdx = (serverIdx + 1) % peerServers.length;
-                        setTimeout(() => tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode), 300);
-                    } else {
-                        id('status-msg').textContent = `❌ ${err.type}`;
-                        id('status-msg').className = 'status-error';
-                    }
-                });
-            });
-
-            p.on('error', err => {
-                clearTimeout(signalTimeout);
-                connLog(`❌ خطأ خادم: ${err.type}`);
-                if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
-                    p.destroy(); peer = null;
-                    const nextIdx = (serverIdx + 1) % peerServers.length;
-                    setTimeout(() => tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode), 300);
-                } else if (err.type === 'unavailable-id') {
-                    // ID taken on this server - shouldn't happen for join, but try next
-                    p.destroy(); peer = null;
-                    const nextIdx = (serverIdx + 1) % peerServers.length;
-                    setTimeout(() => tryJoinOnServer(code, nextIdx, attempt + 1, originalFullCode), 300);
-                } else {
-                    id('status-msg').textContent = `❌ ${err.type || 'فشل الاتصال'}`;
-                    id('status-msg').className = 'status-error';
-                }
-            });
-        }
-
-        // Monitor ICE connection state for debugging
-        function monitorICE(peerObj, connObj) {
-            // Try to monitor after a short delay (PeerJS needs time to create RTCPeerConnection)
+            // Send join request after short delay to ensure subscription is active
             setTimeout(() => {
-                if (!peerObj) return;
-                try {
-                    const pc = peerObj._pc || (peerObj.connections && Object.values(peerObj.connections).flat()[0]?.peerConnection);
-                    if (!pc) { connLog('⚠️ لا يمكن الوصول لـ RTCPeerConnection'); return; }
-                    pc.oniceconnectionstatechange = () => {
-                        const state = pc.iceConnectionState;
-                        connLog(`🔗 ICE: ${state}`);
-                        if (state === 'failed') {
-                            connLog('❌ فشل اتصال ICE! السبب المحتمل: جدار حماية صارم أو خادم TURN لا يعمل');
-                            connLog('💡 جرب: الإعدادات المتقدمة → غيّر الخادم');
-                        } else if (state === 'connected' || state === 'completed') {
-                            connLog('✅ اتصال ICE ناجح!');
-                        } else if (state === 'disconnected') {
-                            connLog('⚠️ انقطع ICE مؤقتاً، جاري إعادة الاتصال...');
-                            // Try ICE restart
-                            try { pc.restartIce(); connLog('🔄 إعادة تشغيل ICE...'); } catch(e) {}
-                        }
-                    };
-                    pc.onicecandidate = (e) => {
-                        if (e.candidate) {
-                            const type = e.candidate.type || 'unknown';
-                            const proto = e.candidate.protocol || '';
-                            connLog(`🧊 مرشح ICE: ${type} (${proto})`);
-                        }
-                    };
-                } catch(e) {
-                    connLog('⚠️ تعذر مراقبة ICE');
+                if (conn && conn.open) {
+                    conn.send({type: 'join_request', joinSenderId: senderId});
+                    connLog('📤 تم إرسال طلب الانضمام');
                 }
-            }, 2000);
+            }, 1000);
+
+            // Timeout - if no response from host
+            const joinTimeout = setTimeout(() => {
+                if (!nameConfirmed && conn) {
+                    connLog('⏳ انتهت مهلة الانضمام');
+                    id('status-msg').textContent = '❌ الغرفة غير موجودة أو المضيف غير متصل';
+                    id('status-msg').className = 'status-error';
+                    conn.close();
+                    conn = null;
+                }
+            }, 20000);
+
+            // Cancel timeout on successful connection (when game_config received)
+            const cancelTimeout = (data) => {
+                if (data.type === 'game_config') {
+                    clearTimeout(joinTimeout);
+                    conn.off('data', cancelTimeout);
+                }
+            };
+            conn.on('data', cancelTimeout);
         }
+
         id('btn-adv').onclick = () => {
             const el = id('adv-settings');
             el.classList.toggle('hidden');
@@ -1689,30 +1616,19 @@
         };
         id('btn-test-peer').onclick = async () => {
             const result = id('test-peer-result');
-            result.textContent = '🔄 جاري اختبار جميع الخوادم...'; result.style.color = '#888';
-            const custom = id('peer-server-input').value.trim();
-            if (custom) {
-                const opts = getPeerOpts(0);
-                const p = new Peer('test' + Math.random().toString(36).substr(2,6), opts);
-                const t = setTimeout(() => { p.destroy(); result.textContent = `❌ ${custom} لا يستجيب`; result.style.color = '#e74c3c'; }, 8000);
-                p.on('open', () => { clearTimeout(t); p.destroy(); result.textContent = `✅ ${custom} يعمل`; result.style.color = '#27ae60'; });
-                p.on('error', err => { clearTimeout(t); p.destroy(); if (err.type === 'unavailable-id') { result.textContent = `✅ ${custom} يعمل`; result.style.color = '#27ae60'; } else { result.textContent = `❌ ${err.type}`; result.style.color = '#e74c3c'; } });
+            result.textContent = '🔄 جاري اختبار الاتصال بـ ntfy.sh...'; result.style.color = '#888';
+            const ok = await testNftyConnection();
+            if (ok) {
+                result.textContent = '✅ ntfy.sh يعمل بنجاح'; result.style.color = '#27ae60';
             } else {
-                let found = false;
-                for (let i = 0; i < peerServers.length; i++) {
-                    result.textContent = `🔄 اختبار ${peerServers[i].host}...`;
-                    const ok = await testPeerServer(i);
-                    if (ok) { result.textContent = `✅ ${peerServers[i].host} يعمل`; result.style.color = '#27ae60'; found = true; break; }
-                }
-                if (!found) { result.textContent = '❌ لا يوجد خادم متاح حالياً'; result.style.color = '#e74c3c'; }
+                result.textContent = '❌ ntfy.sh غير متاح. تحقق من الإنترنت'; result.style.color = '#e74c3c';
             }
         };
         id('btn-show-debug').onclick = () => { id('conn-debug-panel').classList.toggle('hidden'); };
         id('btn-create').onclick = () => { tryCreatePeer(genCode(), 0); };
         id('btn-cancel').onclick = () => {
             try { if (conn && conn.open) conn.send({type:'cancel'}); } catch(e) {}
-            if (peer) { setTimeout(() => { peer.destroy(); peer = null; }, 100); }
-            conn = null;
+            if (conn) { conn.close(); conn = null; }
             id('phase-host').classList.add('hidden');
             id('phase-choose').classList.remove('hidden');
             id('phase-names').classList.add('hidden');
@@ -1747,15 +1663,15 @@
 
         id('btn-join').onclick = () => {
             const code = id('join-input').value.trim();
-            if (!/^\d{3,4}$/.test(code)) { alert('أدخل الكود المكون من 3 أو 4 أرقام'); return; }
-            joinRetryCount = 0;
+            if (!/^\d{4}$/.test(code)) { alert('أدخل الكود المكون من 4 أرقام'); return; }
             tryJoin(code);
         };
 
         // ========== Multiplayer State ==========
         let mpState = {players:[], mode:'league', myId:null, isHost:false, phase:'lobby', matches:[], currentMatchIdx:-1, standings:[], groups:[], matchActive:false, matchP1Id:null, matchP2Id:null, compOver:false, saveCode:''};
         let mpConns = {}; let mpConnIdCounter = 0;
-        let mpPeer = null; let isMpHost = false;
+        let isMpHost = false;
+        // mpNftyConn is declared above (near line 680)
 
         // ========== Personal Code Helpers ==========
         function mpGeneratePersonalCode() {
@@ -1825,13 +1741,17 @@
         }
 
         function mpBroadcast(data, exclude) {
-            for (const [pid, p] of Object.entries(mpConns)) {
-                if (pid === exclude) continue;
-                try { if (p.conn && p.conn.open) p.conn.send(data); } catch(e) {}
+            // With ntfy.sh, broadcasting is just publishing to the topic
+            // All subscribers receive it; they filter by sender themselves
+            if (mpNftyConn && mpNftyConn.open) {
+                mpNftyConn.send(data);
             }
         }
         function mpSendTo(pid, data) {
-            try { if (mpConns[pid] && mpConns[pid].conn && mpConns[pid].conn.open) mpConns[pid].conn.send(data); } catch(e) {}
+            // Send a targeted message to a specific player using their nftySenderId
+            if (mpNftyConn && mpNftyConn.open && mpConns[pid] && mpConns[pid].nftySenderId) {
+                mpNftyConn.sendDirect(mpConns[pid].nftySenderId, data);
+            }
         }
 
         // ========== Room Creation ==========
@@ -1843,84 +1763,36 @@
         }
         let mpCreateRetries = 0;
         async function mpTryCreate(code) {
-            if (mpCreateRetries > 10) {
-                id('mp-status-msg').textContent = '❌ فشل إنشاء الغرفة بعد 10 محاولات. جرب خادماً آخر في الإعدادات'; id('mp-status-msg').className = 'status-error'; return;
+            if (mpCreateRetries > 5) {
+                id('mp-status-msg').textContent = '❌ فشل إنشاء الغرفة. تحقق من اتصال الإنترنت'; id('mp-status-msg').className = 'status-error'; return;
             }
             id('mp-status-msg').textContent = '🔄 جاري إنشاء الغرفة...'; id('mp-status-msg').className = 'status-wait';
             connLog(`إنشاء غرفة جماعية: ${code}`);
 
-            // Find working server
-            let serverIdx = 0;
-            const custom = id('peer-server-input').value.trim();
-            if (!custom) {
-                for (let i = 0; i < peerServers.length; i++) {
-                    const ok = await testPeerServer(i);
-                    if (ok) { serverIdx = i; break; }
-                }
+            // Test ntfy.sh connectivity
+            const ok = await testNftyConnection();
+            if (!ok) {
+                connLog('❌ ntfy.sh غير متاح');
+                setTimeout(() => mpTryCreate(mpGenCode(), mpCreateRetries + 1), 1000);
+                return;
             }
 
-            const opts = getPeerOpts(serverIdx);
-            const p = new Peer(code, opts);
-            mpPeer = p;
-            p.on('open', id2 => {
-                if (id2 === code) {
-                    roomCode = code;
-                    id('phase-mp-choose').classList.add('hidden');
-                    id('phase-mp-host').classList.add('hidden');
-                    id('phase-mp-lobby').classList.remove('hidden');
-                    id('mp-lobby-code').textContent = '📋 الكود: ' + code;
-                    id('mp-status-msg').textContent = '';
-                    isMpHost = true; mpState.isHost = true;
-                    gameMode = 'mp';
-                    mpState.players = [{id:'host', name:'', ready:false, host:true}];
-                    mpState.myId = 'host';
-                    updateConnUI(true, 'جماعي');
-                    mpRenderPlayerList();
-                    // Apply resume state if pending
-                    if (mpState._pendingResume) {
-                        const rs = mpState._pendingResume;
-                        mpState.mode = rs.mode || 'league';
-                        mpState.matches = rs.matches || [];
-                        mpState.standings = rs.standings || [];
-                        mpState.groups = rs.groups || [];
-                        mpState.bracket = rs.bracket || null;
-                        mpState.currentMatchIdx = rs.currentMatchIdx != null ? rs.currentMatchIdx : -1;
-                        mpState.saveCode = rs.saveCode || code;
-                        mpState.cloudUrl = rs.cloudUrl || '';
-                        if (mpState.cloudUrl) mpCloudUrl = mpState.cloudUrl;
-                        gridSize = rs.gridSize || gridSize;
-                        // Restore player list with saved names, IDs, and personal codes
-                        if (rs.players && rs.players.length > 0) {
-                            mpState.players = rs.players.map(p => ({...p, ready:false}));
-                        }
-                        // Auto-set host name and ready from saved data
-                        const hostPlayer = mpState.players.find(p => p.host);
-                        if (hostPlayer && hostPlayer.name) {
-                            hostPlayer.ready = true;
-                        }
-                        mpState._pendingResume = null;
-                        mpRenderPlayerList();
-                        mpSaveState();
-                        mpShowNotification('📂 تم تحميل المسابقة المحفوظة', 'info');
-                    }
-                }
-            });
-            p.on('error', err => {
-                if (err.type === 'unavailable-id' || err.type === 'invalid-id') {
-                    p.destroy(); setTimeout(() => mpTryCreate(mpGenCode(), mpCreateRetries + 1), 300);
-                    mpCreateRetries++;
-                } else {
-                    id('mp-status-msg').textContent = `❌ ${err.type}`; id('mp-status-msg').className = 'status-error';
-                }
-            });
-            p.on('connection', c => {
-                const pid = 'p' + (mpConnIdCounter++);
-                mpConns[pid] = {conn:c, name:'', ready:false};
-                c.on('data', d => mpHandleHostData(pid, d));
-                c.on('close', () => mpHandlePlayerLeave(pid, 'غادر'));
-                c.on('error', () => mpHandlePlayerLeave(pid, 'خطأ'));
-                c.on('open', () => {
+            const topic = 'qt5m-' + code;
+            const senderId = 'mph' + Math.random().toString(36).substr(2,8);
+
+            roomCode = code;
+            mpNftyConn = new NftyConn(topic, senderId, true);
+            isMpHost = true; mpState.isHost = true;
+            gameMode = 'mp';
+
+            // Host data handler: processes messages from all players
+            mpNftyConn.on('data', (data) => {
+                // Handle join requests from new players
+                if (data.type === 'mp_join_request') {
+                    const pid = 'p' + (mpConnIdCounter++);
+                    mpConns[pid] = {name:'', ready:false, nftySenderId: data.joinSenderId};
                     const hasComp = mpState.matches.length > 0;
+                    // Send welcome to the new player (targeted)
                     mpSendTo(pid, {type:'mp_welcome', playerId:pid, players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode})), gridSize,
                         competitionState: hasComp ? {mode:mpState.mode, matches:mpState.matches, standings:mpState.standings, groups:mpState.groups, bracket:mpState.bracket, currentMatchIdx:mpState.currentMatchIdx, compOver:mpState.compOver} : null});
                     if (hasComp) mpSendTo(pid, {type:'mp_request_code'});
@@ -1928,77 +1800,108 @@
                     mpBroadcast({type:'mp_player_list', players: mpState.players.map(p => ({id:p.id, name:p.name, ready:p.ready, host:p.host, personalCode:p.personalCode}))});
                     mpRenderPlayerList();
                     mpShowNotification('🟢 انضم لاعب جديد إلى الغرفة', 'info');
-                });
+                    return;
+                }
+                // Handle player leave
+                if (data.type === 'mp_leave' && data.mpPid) {
+                    mpHandlePlayerLeave(data.mpPid, 'غادر');
+                    return;
+                }
+                // Handle player messages that include their pid
+                if (data.mpPid) {
+                    mpHandleHostData(data.mpPid, data);
+                }
             });
+
+            mpNftyConn.subscribe();
+
+            id('phase-mp-choose').classList.add('hidden');
+            id('phase-mp-host').classList.add('hidden');
+            id('phase-mp-lobby').classList.remove('hidden');
+            id('mp-lobby-code').textContent = '📋 الكود: ' + code;
+            id('mp-status-msg').textContent = '';
+            mpState.players = [{id:'host', name:'', ready:false, host:true}];
+            mpState.myId = 'host';
+            updateConnUI(true, 'جماعي');
+            mpRenderPlayerList();
+
+            // Apply resume state if pending
+            if (mpState._pendingResume) {
+                const rs = mpState._pendingResume;
+                mpState.mode = rs.mode || 'league';
+                mpState.matches = rs.matches || [];
+                mpState.standings = rs.standings || [];
+                mpState.groups = rs.groups || [];
+                mpState.bracket = rs.bracket || null;
+                mpState.currentMatchIdx = rs.currentMatchIdx != null ? rs.currentMatchIdx : -1;
+                mpState.saveCode = rs.saveCode || code;
+                mpState.cloudUrl = rs.cloudUrl || '';
+                if (mpState.cloudUrl) mpCloudUrl = mpState.cloudUrl;
+                gridSize = rs.gridSize || gridSize;
+                // Restore player list with saved names, IDs, and personal codes
+                if (rs.players && rs.players.length > 0) {
+                    mpState.players = rs.players.map(p => ({...p, ready:false}));
+                }
+                // Auto-set host name and ready from saved data
+                const hostPlayer = mpState.players.find(p => p.host);
+                if (hostPlayer && hostPlayer.name) {
+                    hostPlayer.ready = true;
+                }
+                mpState._pendingResume = null;
+                mpRenderPlayerList();
+                mpSaveState();
+                mpShowNotification('📂 تم تحميل المسابقة المحفوظة', 'info');
+            }
+
+            connLog(`✅ غرفة جماعية ${code} تم إنشاؤها عبر ntfy.sh`);
         }
 
         // ========== Join Room ==========
-        let mpJoinPeer = null;
-        let mpJoinAttempt = 0;
         async function mpTryJoin(code) {
             id('phase-mp-choose').classList.add('hidden');
             id('phase-mp-join').classList.remove('hidden');
             id('mp-join-status').textContent = '🔄 جاري الاتصال بالغرفة...';
             connLog(`الانضمام لغرفة جماعية: ${code}`);
 
-            // Try each server looking for the host
-            mpJoinAttempt = 0;
-            mpTryJoinOnServer(code, 0);
-        }
-
-        function mpTryJoinOnServer(code, serverIdx) {
-            if (mpJoinAttempt > peerServers.length) {
-                id('mp-join-status').textContent = '❌ الغرفة غير موجودة. تأكد أن المضيف أنشأ الغرفة'; id('mp-join-status').className = 'status-error';
+            // Test ntfy.sh connectivity
+            const ok = await testNftyConnection();
+            if (!ok) {
+                id('mp-join-status').textContent = '❌ لا يمكن الاتصال بـ ntfy.sh. تحقق من الإنترنت';
+                id('mp-join-status').className = 'status-error';
                 return;
             }
-            mpJoinAttempt++;
-            id('mp-join-status').textContent = `🔄 جاري الاتصال (${peerServers[serverIdx]?.host || 'خادم'}...`;
-            connLog(`تجربة خادم ${peerServers[serverIdx]?.host} للغرفة الجماعية`);
-            const opts = getPeerOpts(serverIdx);
-            const p = new Peer(opts);
-            mpJoinPeer = p;
-            const sigTimeout = setTimeout(() => {
-                if (!p.open) {
-                    p.destroy();
-                    const nextIdx = (serverIdx + 1) % peerServers.length;
-                    mpTryJoinOnServer(code, nextIdx);
+
+            const topic = 'qt5m-' + code;
+            const senderId = 'mpg' + Math.random().toString(36).substr(2,8);
+
+            roomCode = code;
+            mpNftyConn = new NftyConn(topic, senderId, false);
+            isMpHost = false; mpState.isHost = false;
+            gameMode = 'mp';
+
+            // Client data handler: processes messages from host
+            mpNftyConn.on('data', mpHandleClientData);
+            mpNftyConn.on('close', () => { mpShowNotification('🔌 انقطع الاتصال بالمضيف', 'info'); mpGoToLobby(); });
+
+            mpNftyConn.subscribe();
+
+            // Send join request after short delay
+            setTimeout(() => {
+                if (mpNftyConn && mpNftyConn.open) {
+                    mpNftyConn.send({type: 'mp_join_request', joinSenderId: senderId});
+                    connLog('📤 تم إرسال طلب الانضمام للغرفة الجماعية');
                 }
-            }, 10000);
-            p.on('open', () => {
-                clearTimeout(sigTimeout);
-                id('mp-join-status').textContent = '🔄 جاري الاتصال بالغرفة...';
-                const c = p.connect(code, { reliable: true, timeout: 20000 });
-                const timeout = setTimeout(() => {
-                    if (!c.open) {
-                        p.destroy();
-                        const nextIdx = (serverIdx + 1) % peerServers.length;
-                        mpTryJoinOnServer(code, nextIdx);
-                    }
-                }, 20000);
-                c.on('open', () => {
-                    clearTimeout(timeout);
-                    id('phase-mp-join').classList.add('hidden');
-                    isMpHost = false; mpState.isHost = false;
-                    mpPeer = p; mpState.myConn = c; conn = c;
-                    gameMode = 'mp';
-                    connLog('✅ تم الاتصال بالغرفة الجماعية!');
-                    monitorICE(p, c);
-                });
-                c.on('data', d => mpHandleClientData(d));
-                c.on('close', () => { mpShowNotification('🔌 انقطع الاتصال بالمضيف', 'info'); mpGoToLobby(); });
-                c.on('error', () => {
-                    clearTimeout(timeout);
-                    p.destroy();
-                    const nextIdx = (serverIdx + 1) % peerServers.length;
-                    setTimeout(() => mpTryJoinOnServer(code, nextIdx), 300);
-                });
-            });
-            p.on('error', () => {
-                clearTimeout(sigTimeout);
-                p.destroy();
-                const nextIdx = (serverIdx + 1) % peerServers.length;
-                setTimeout(() => mpTryJoinOnServer(code, nextIdx), 300);
-            });
+            }, 1000);
+
+            // Timeout
+            setTimeout(() => {
+                if (!mpState.myId && mpNftyConn) {
+                    id('mp-join-status').textContent = '❌ الغرفة غير موجودة أو المضيف غير متصل';
+                    id('mp-join-status').className = 'status-error';
+                    mpNftyConn.close();
+                    mpNftyConn = null;
+                }
+            }, 20000);
         }
 
         function mpGoToLobby() {
@@ -2008,7 +1911,7 @@
             id('phase-mp-competition').classList.add('hidden');
             id('phase-mp-choose').classList.remove('hidden');
             id('mp-status-msg').textContent = '';
-            if (mpPeer) { try {mpPeer.destroy();}catch(e){} mpPeer = null; }
+            if (mpNftyConn) { mpNftyConn.close(); mpNftyConn = null; }
             mpConns = {}; mpState = {players:[], mode:'league', myId:null, isHost:false, phase:'lobby', matches:[], currentMatchIdx:-1, standings:[], groups:[], matchActive:false, matchP1Id:null, matchP2Id:null, compOver:false};
             isMpHost = false; mpConnIdCounter = 0;
         }
@@ -2038,8 +1941,9 @@
                     break;
                 case 'mp_move':
                     if (mpState.matchActive && (pid === mpState.matchP1Id || pid === mpState.matchP2Id)) {
-                        mpBroadcast({type:'mp_match_move', r:data.r, c:data.c, p:data.p, pid:pid, pts:data.pts, scores:data.scores, cur:data.cur, used:data.used}, 'host');
-                        mpSendTo(mpState.matchP1Id === pid ? mpState.matchP2Id : mpState.matchP1Id, {type:'mp_match_move', r:data.r, c:data.c, p:data.p, pid:pid, pts:data.pts, scores:data.scores, cur:data.cur, used:data.used});
+                        // Apply the move on the host's board too
+                        mpApplyMove(data);
+                        mpBroadcast({type:'mp_match_move', r:data.r, c:data.c, p:data.p, pid:pid, pts:data.pts, scores:data.scores, cur:data.cur, used:data.used});
                         mpCheckMatchEnd();
                     }
                     break;
@@ -2238,7 +2142,7 @@
                 case 'mp_request_code':
                     const code = prompt('🔑 أدخل كودك الشخصي (3 أرقام) لاسترجاع حسابك، أو أتركه فارغاً للتسجيل كلاعب جديد:');
                     if (code && /^\d{3}$/.test(code)) {
-                        try { mpState.myConn.send({type:'mp_personal_code', code}); } catch(e) {}
+                        try { mpNftyConn.send({type:'mp_personal_code', code, mpPid: mpState.myId}); } catch(e) {}
                     }
                     break;
                 case 'mp_restore_identity':
@@ -2473,8 +2377,8 @@
                 readyBtn.onclick = () => {
                     if (isMpHost) {
                         mpHandleMatchReady(mpState.myId);
-                    } else if (mpState.myConn) {
-                        try { mpState.myConn.send({type:'mp_match_ready'}); } catch(e) {}
+                    } else if (mpNftyConn) {
+                        try { mpNftyConn.send({type:'mp_match_ready', mpPid: mpState.myId}); } catch(e) {}
                         if (match) {
                             if (mpState.myId === match.p1Id) match.p1Ready = true;
                             else if (mpState.myId === match.p2Id) match.p2Ready = true;
@@ -2892,11 +2796,11 @@
                 mpShowNotification(`✅ مرحباً ${name}! 🔑 كودك: ${player?.personalCode || '???'}`, 'info');
                 return;
             }
-            if (!mpState.myConn) return;
+            if (!mpNftyConn) return;
             const name = prompt('أدخل اسمك:', 'لاعب');
             if (!name) return;
-            try { mpState.myConn.send({type:'mp_set_name', name}); } catch(e) {}
-            try { mpState.myConn.send({type:'mp_ready', ready:true}); } catch(e) {}
+            try { mpNftyConn.send({type:'mp_set_name', name, mpPid: mpState.myId}); } catch(e) {}
+            try { mpNftyConn.send({type:'mp_ready', ready:true, mpPid: mpState.myId}); } catch(e) {}
             const pl = mpState.players.find(p => p.id === mpState.myId);
             if (pl) { pl.name = name; pl.ready = true; }
             mpRenderPlayerList();
@@ -2936,9 +2840,9 @@
             } else {
                 // Client: send move to host
                 if (!doMove(r, c, p)) return;
-                try { mpState.myConn.send({type:'mp_move', r, c, p, pts:0, scores, cur:curPlayer, used}); } catch(e) {}
+                try { mpNftyConn.send({type:'mp_move', r, c, p, pts:0, scores, cur:curPlayer, used, mpPid: mpState.myId}); } catch(e) {}
                 if (gameOver) {
-                    try { mpState.myConn.send({type:'mp_match_end', scores, winner: scores.X > scores.O ? 'X' : scores.O > scores.X ? 'O' : null}); } catch(e) {}
+                    try { mpNftyConn.send({type:'mp_match_end', scores, winner: scores.X > scores.O ? 'X' : scores.O > scores.X ? 'O' : null, mpPid: mpState.myId}); } catch(e) {}
                 }
             }
         }
