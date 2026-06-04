@@ -1398,14 +1398,49 @@
         // Key insight: ntfy.sh limits to ~1 msg/sec. Sending each ICE candidate
         // individually would exceed this limit. Batching solves it.
 
-        const ICE_SERVERS = [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            // TURN servers for NAT traversal (critical for mobile networks)
-            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-        ];
+        // ---- Dynamic TURN Credentials ----
+        // Metered Open Relay uses static auth secret to generate time-limited credentials
+        // Algorithm: username = timestamp, credential = base64(HMAC-SHA1(secret, username))
+        const TURN_SECRET = 'openrelayprojectsecret';
+        const TURN_SERVER = 'staticauth.openrelay.metered.ca';
+
+        async function generateTurnCredentials(ttlHours = 24) {
+            const username = Math.floor(Date.now() / 1000) + ttlHours * 3600;
+            const encoder = new TextEncoder();
+            const keyData = encoder.encode(TURN_SECRET);
+            const msgData = encoder.encode(String(username));
+            try {
+                const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+                const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
+                const credential = btoa(String.fromCharCode(...new Uint8Array(signature)));
+                console.log(`🔑 Generated TURN credentials: user=${username}, cred=${credential.substring(0,10)}...`);
+                return { username: String(username), credential };
+            } catch (e) {
+                console.error('Failed to generate TURN credentials:', e);
+                // Fallback to old hardcoded credentials
+                return { username: 'openrelayproject', credential: 'openrelayproject' };
+            }
+        }
+
+        async function getIceServers() {
+            const turnCreds = await generateTurnCredentials();
+            return [
+                // Multiple STUN servers for redundancy
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' },
+                // TURN servers for NAT traversal (critical for mobile networks)
+                { urls: `turn:${TURN_SERVER}:80`, username: turnCreds.username, credential: turnCreds.credential },
+                { urls: `turn:${TURN_SERVER}:443`, username: turnCreds.username, credential: turnCreds.credential },
+                { urls: `turns:${TURN_SERVER}:443`, username: turnCreds.username, credential: turnCreds.credential },
+                { urls: `turn:${TURN_SERVER}:443?transport=tcp`, username: turnCreds.username, credential: turnCreds.credential },
+            ];
+        }
+
+        // Cached ICE servers (generated once, refreshed on each call)
+        let _cachedIceServers = null;
 
         let voicePC = null;
         let localStream = null;
@@ -1465,7 +1500,13 @@
         function _flushIceBatch() {
             if (_iceBatch.length === 0) return;
             const candidates = _iceBatch.splice(0);
-            console.log(`📡 Sending ${candidates.length} ICE candidates`);
+            // Log candidate types for diagnostics
+            const typeCounts = {};
+            candidates.forEach(c => {
+                const t = classifyCandidate(c.candidate || '');
+                typeCounts[t] = (typeCounts[t] || 0) + 1;
+            });
+            console.log(`📡 Sending ${candidates.length} ICE candidates:`, JSON.stringify(typeCounts));
             sendCallSignal({ type: 'ice_candidates', candidates: candidates });
         }
 
@@ -1498,7 +1539,10 @@
                 updateCallUI();
                 addMsg('sys', '📞 جاري الاتصال...');
 
-                voicePC = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+                // Generate dynamic TURN credentials for this call
+                _cachedIceServers = await getIceServers();
+                console.log('🔑 ICE servers configured:', _cachedIceServers.length, 'servers');
+                voicePC = new RTCPeerConnection({ iceServers: _cachedIceServers });
                 setupPeerConnection();
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
@@ -1520,11 +1564,23 @@
             }
         }
 
+        // ---- Classify ICE candidate type for diagnostics ----
+        function classifyCandidate(candidateStr) {
+            if (!candidateStr) return 'unknown';
+            if (candidateStr.includes('typ host')) return 'host';
+            if (candidateStr.includes('typ srflx')) return 'srflx';
+            if (candidateStr.includes('typ relay')) return 'relay';
+            if (candidateStr.includes('typ prflx')) return 'prflx';
+            return 'other';
+        }
+
         // ---- Setup Peer Connection Events ----
         function setupPeerConnection() {
             // Trickle ICE: batch candidates instead of sending individually
             voicePC.onicecandidate = (event) => {
                 if (event.candidate) {
+                    const candType = classifyCandidate(event.candidate.candidate);
+                    console.log(`🧊 ICE candidate: ${candType} - ${event.candidate.candidate.substring(0, 60)}...`);
                     _iceBatch.push(event.candidate.toJSON());
                     _scheduleIceBatch();
                 }
@@ -1575,7 +1631,8 @@
             voicePC.oniceconnectionstatechange = () => {
                 if (!voicePC) return;
                 const state = voicePC.iceConnectionState;
-                console.log('ICE connection state:', state);
+                const signalingState = voicePC.signalingState;
+                console.log(`ICE state: ${state} | Signaling: ${signalingState}`);
 
                 if (state === 'connected' || state === 'completed') {
                     if (callState !== 'connected') {
@@ -1587,22 +1644,42 @@
                     }
                 } else if (state === 'disconnected') {
                     addMsg('sys', '⚠️ انقطاع مؤقت في الاتصال الصوتي...');
-                    // Try ICE restart after 3 seconds
+                    // Try ICE restart after 2 seconds (faster recovery)
                     setTimeout(() => {
                         if (voicePC && voicePC.iceConnectionState === 'disconnected') {
-                            try { voicePC.restartIce(); console.log('🔄 ICE restart attempted'); } catch(e) {}
+                            try {
+                                voicePC.restartIce();
+                                console.log('🔄 ICE restart attempted');
+                                addMsg('sys', '🔄 جاري إعادة الاتصال...');
+                            } catch(e) { console.warn('ICE restart failed:', e); }
                         }
-                    }, 3000);
+                    }, 2000);
                 } else if (state === 'failed') {
+                    console.error('❌ ICE connection failed. Gathering state:', voicePC.iceGatheringState);
                     addMsg('sys', '❌ فشل الاتصال الصوتي');
-                    addMsg('sys', '💡 السبب المحتمل: الشبكة تمنع اتصالات WebRTC أو خوادم الوسيط غير متاحة');
-                    addMsg('sys', '💡 جرب الاتصال من شبكة WiFi مختلفة أو تأكد من السماح بالوصول للميكروفون');
+                    addMsg('sys', '💡 جرب: 1) شبكة WiFi مختلفة 2) إعادة تحميل الصفحة 3) التأكد من السماح بالميكروفون');
                     resetCall();
                 } else if (state === 'closed') {
                     if (callState !== 'idle') {
                         addMsg('sys', '📞 تم إغلاق الاتصال');
                         resetCall();
                     }
+                }
+            };
+
+            // Log ICE gathering state for diagnostics
+            voicePC.onicegatheringstatechange = () => {
+                if (!voicePC) return;
+                console.log('ICE gathering state:', voicePC.iceGatheringState);
+            };
+
+            // Log peer connection state
+            voicePC.onconnectionstatechange = () => {
+                if (!voicePC) return;
+                console.log('Connection state:', voicePC.connectionState);
+                if (voicePC.connectionState === 'failed') {
+                    addMsg('sys', '❌ فشل الاتصال - جرب إعادة تحميل الصفحة');
+                    resetCall();
                 }
             };
         }
@@ -1658,7 +1735,13 @@
             else if (signal.type === 'ice_candidates') {
                 // Batch of ICE candidates received
                 const candidates = signal.candidates || [];
-                console.log(`📥 Received ${candidates.length} ICE candidates`);
+                // Log candidate types for diagnostics
+                const typeCounts = {};
+                candidates.forEach(c => {
+                    const t = classifyCandidate(c.candidate || '');
+                    typeCounts[t] = (typeCounts[t] || 0) + 1;
+                });
+                console.log(`📥 Received ${candidates.length} ICE candidates:`, JSON.stringify(typeCounts));
                 for (const cand of candidates) {
                     if (voicePC && voicePC.remoteDescription) {
                         try {
@@ -1703,7 +1786,10 @@
             id('incoming-call-overlay').classList.remove('show');
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                voicePC = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+                // Generate dynamic TURN credentials for this call
+                _cachedIceServers = await getIceServers();
+                console.log('🔑 ICE servers configured:', _cachedIceServers.length, 'servers');
+                voicePC = new RTCPeerConnection({ iceServers: _cachedIceServers });
                 setupPeerConnection();
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
@@ -1779,6 +1865,7 @@
             _pendingIceCandidates = [];
             _iceBatch = [];
             _iceGatheringDone = false;
+            _cachedIceServers = null;
             if (_iceBatchTimer) { clearTimeout(_iceBatchTimer); _iceBatchTimer = null; }
             window._pendingOffer = null;
             clearInterval(callTimerInterval);
@@ -2155,20 +2242,27 @@
                 // Split large payload into chunks that fit within ntfy.sh limit
                 const chunkId = Date.now().toString(36) + Math.random().toString(36).substr(2,4);
                 const payloadStr = JSON.stringify(data);
-                const CHUNK_SIZE = 3500;
+                // ntfy.sh limit is ~4096 bytes. Envelope overhead is ~120 bytes.
+                // Each chunk wrapper adds ~80 bytes ({type:'_chunk',chunkId,i,total,data:''})
+                const CHUNK_SIZE = 3200; // Conservative chunk size
                 const total = Math.ceil(payloadStr.length / CHUNK_SIZE);
+                console.log(`📦 Chunking: ${payloadStr.length} bytes into ${total} chunks (id: ${chunkId})`);
                 for (let i = 0; i < total; i++) {
                     const chunk = payloadStr.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
                     const msg = JSON.stringify({sender: this.senderId, target: '', payload: {type: '_chunk', chunkId, i, total, data: chunk}});
-                    // Add delay between chunks to avoid rate limiting
+                    // Add delay between chunks to avoid ntfy.sh rate limiting (~1 msg/sec)
                     setTimeout(() => {
                         fetch(`https://ntfy.sh/${this.topic}`, {
                             method: 'POST',
                             body: msg
                         }).then(res => {
-                            if (!res.ok) console.error(`❌ ntfy chunk POST failed: ${res.status}`);
-                        }).catch(e => console.error('ntfy chunk send failed:', e));
-                    }, i * 1000); // 1 second delay between chunks
+                            if (!res.ok) {
+                                console.error(`❌ ntfy chunk ${i}/${total} POST failed: ${res.status}`);
+                            } else {
+                                console.log(`📦 Chunk ${i+1}/${total} sent (${msg.length} bytes)`);
+                            }
+                        }).catch(e => console.error(`ntfy chunk ${i} send failed:`, e));
+                    }, i * 1200); // 1.2 second delay between chunks for ntfy rate limit
                 }
             }
 
@@ -2219,15 +2313,26 @@
                         const payload = msg.payload;
                         if (payload && payload.type === '_chunk') {
                             if (!this._chunkBuffers[payload.chunkId]) {
-                                this._chunkBuffers[payload.chunkId] = { total: payload.total, chunks: {} };
+                                this._chunkBuffers[payload.chunkId] = { total: payload.total, chunks: {}, createdAt: Date.now() };
+                                // Set timeout to clean up incomplete chunks after 15 seconds
+                                setTimeout(() => {
+                                    if (this._chunkBuffers[payload.chunkId]) {
+                                        const buf = this._chunkBuffers[payload.chunkId];
+                                        const received = Object.keys(buf.chunks).length;
+                                        console.warn(`📦 Chunk ${payload.chunkId} timed out: received ${received}/${buf.total}`);
+                                        delete this._chunkBuffers[payload.chunkId];
+                                    }
+                                }, 15000);
                             }
                             const buf = this._chunkBuffers[payload.chunkId];
                             buf.chunks[payload.i] = payload.data;
+                            console.log(`📦 Chunk received: ${payload.i+1}/${payload.total} (id: ${payload.chunkId})`);
                             // Check if all chunks received
                             if (Object.keys(buf.chunks).length === buf.total) {
                                 const fullStr = Object.keys(buf.chunks).sort((a,b) => a-b).map(k => buf.chunks[k]).join('');
                                 try {
                                     const reassembled = JSON.parse(fullStr);
+                                    console.log(`📦 Chunk reassembly complete: ${fullStr.length} bytes (id: ${payload.chunkId})`);
                                     this._emit('data', reassembled);
                                 } catch(e) { console.error('Chunk reassembly parse error:', e); }
                                 delete this._chunkBuffers[payload.chunkId];
