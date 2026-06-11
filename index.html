@@ -761,6 +761,7 @@
             <div id="chat-head"><span>💬 الدردشة</span><span style="display:flex;align-items:center;gap:8px;"><span class="chatter" id="chat-status"></span><button id="chat-close-btn" style="display:none;background:none;border:none;color:var(--text-primary);font-size:1.2rem;cursor:pointer;padding:2px 6px;">✕</button></span></div>
             <div id="chat-toolbar">
                 <button class="chat-tool-btn" id="btn-voice-call">📞 اتصال صوتي</button>
+                <button class="chat-tool-btn" id="btn-turn-test" style="font-size:0.75rem;padding:4px 8px;" title="فحص خوادم الاتصال">🔧 فحص</button>
             </div>
             <div id="chat-msgs"></div>
             <div id="voice-call-bar">
@@ -1402,45 +1403,160 @@
         // Metered Open Relay uses static auth secret to generate time-limited credentials
         // Algorithm: username = timestamp, credential = base64(HMAC-SHA1(secret, username))
         const TURN_SECRET = 'openrelayprojectsecret';
-        const TURN_SERVER = 'staticauth.openrelay.metered.ca';
 
         async function generateTurnCredentials(ttlHours = 24) {
-            const username = Math.floor(Date.now() / 1000) + ttlHours * 3600;
+            const expiryTimestamp = Math.floor(Date.now() / 1000) + ttlHours * 3600;
+            // Standard TURN REST API format: "timestamp:userid"
+            const username = expiryTimestamp + ':quintet';
             const encoder = new TextEncoder();
             const keyData = encoder.encode(TURN_SECRET);
-            const msgData = encoder.encode(String(username));
+            const msgData = encoder.encode(username);
             try {
                 const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
                 const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
                 const credential = btoa(String.fromCharCode(...new Uint8Array(signature)));
                 console.log(`🔑 Generated TURN credentials: user=${username}, cred=${credential.substring(0,10)}...`);
-                return { username: String(username), credential };
+                return { username, credential };
             } catch (e) {
                 console.error('Failed to generate TURN credentials:', e);
-                // Fallback to old hardcoded credentials
                 return { username: 'openrelayproject', credential: 'openrelayproject' };
             }
         }
 
+        // Cached ICE servers to avoid re-fetching on every call
+        let _cachedIceServers = null;
+        let _cachedIceServersTime = 0;
+
         async function getIceServers() {
+            // Cache for 30 minutes
+            if (_cachedIceServers && (Date.now() - _cachedIceServersTime) < 1800000) {
+                return _cachedIceServers;
+            }
+
             const turnCreds = await generateTurnCredentials();
-            return [
-                // Multiple STUN servers for redundancy
+            const servers = [
+                // ===== STUN servers (discover public IP, work via UDP) =====
+                { urls: 'stun:stun.relay.metered.ca:80' },
+                { urls: 'stun:stun.relay.metered.ca:3478' },
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' },
-                // TURN servers for NAT traversal (critical for mobile networks)
-                { urls: `turn:${TURN_SERVER}:80`, username: turnCreds.username, credential: turnCreds.credential },
-                { urls: `turn:${TURN_SERVER}:443`, username: turnCreds.username, credential: turnCreds.credential },
-                { urls: `turns:${TURN_SERVER}:443`, username: turnCreds.username, credential: turnCreds.credential },
-                { urls: `turn:${TURN_SERVER}:443?transport=tcp`, username: turnCreds.username, credential: turnCreds.credential },
+                { urls: 'stun:stun.cloudflare.com:3478' },
+
+                // ===== TURN via TCP (PRIMARY - works through most NATs/firewalls) =====
+                // standard.relay.metered.ca accepts TCP on ports 80, 443, 3478
+                { urls: 'turn:standard.relay.metered.ca:80?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                { urls: 'turn:standard.relay.metered.ca:443?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                { urls: 'turn:standard.relay.metered.ca:3478?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+
+                // ===== TURNS (TLS) - works through deep packet inspection firewalls =====
+                { urls: 'turns:standard.relay.metered.ca:443', username: turnCreds.username, credential: turnCreds.credential },
+
+                // ===== TURN via UDP (fallback - might work from some networks) =====
+                { urls: 'turn:standard.relay.metered.ca:80', username: turnCreds.username, credential: turnCreds.credential },
+                { urls: 'turn:standard.relay.metered.ca:3478', username: turnCreds.username, credential: turnCreds.credential },
+
+                // ===== Legacy TURN servers (additional fallback) =====
+                { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                { urls: 'turn:openrelay.metered.ca:80', username: turnCreds.username, credential: turnCreds.credential },
+                { urls: 'turn:staticauth.openrelay.metered.ca:80?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                { urls: 'turn:staticauth.openrelay.metered.ca:443?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                { urls: 'turns:staticauth.openrelay.metered.ca:443', username: turnCreds.username, credential: turnCreds.credential },
             ];
+
+            _cachedIceServers = servers;
+            _cachedIceServersTime = Date.now();
+            console.log(`🔑 ICE servers configured: ${servers.length} servers (5 STUN, ${servers.length - 5} TURN)`);
+            return servers;
         }
 
-        // Cached ICE servers (generated once, refreshed on each call)
-        let _cachedIceServers = null;
+        // ---- TURN Connectivity Test ----
+        // Tests if TURN servers can provide relay candidates
+        async function testTurnConnectivity() {
+            addMsg('sys', '🔧 جاري فحص خوادم الاتصال...');
+            
+            const iceServers = await getIceServers();
+            const turnCreds = await generateTurnCredentials();
+            const testConfigs = [
+                {
+                    name: 'standard.relay (TCP)',
+                    servers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'turn:standard.relay.metered.ca:80?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                        { urls: 'turn:standard.relay.metered.ca:443?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                        { urls: 'turns:standard.relay.metered.ca:443', username: turnCreds.username, credential: turnCreds.credential },
+                    ]
+                },
+                {
+                    name: 'standard.relay (UDP)',
+                    servers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'turn:standard.relay.metered.ca:80', username: turnCreds.username, credential: turnCreds.credential },
+                        { urls: 'turn:standard.relay.metered.ca:3478', username: turnCreds.username, credential: turnCreds.credential },
+                    ]
+                },
+                {
+                    name: 'openrelay (TCP)',
+                    servers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                    ]
+                },
+                {
+                    name: 'staticauth (TCP+TLS)',
+                    servers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'turn:staticauth.openrelay.metered.ca:80?transport=tcp', username: turnCreds.username, credential: turnCreds.credential },
+                        { urls: 'turns:staticauth.openrelay.metered.ca:443', username: turnCreds.username, credential: turnCreds.credential },
+                    ]
+                },
+            ];
+
+            for (const config of testConfigs) {
+                const result = await testSingleTurnServer(config.name, config.servers);
+                if (result) {
+                    addMsg('sys', `✅ خادم TURN يعمل: ${config.name}`);
+                    return { working: true, server: config.name };
+                }
+            }
+            
+            addMsg('sys', '❌ لا يوجد خادم TURN يعمل حالياً');
+            addMsg('sys', '💡 جرب: 1) شبكة WiFi مختلفة 2) إعادة تحميل الصفحة');
+            return { working: false };
+        }
+
+        async function testSingleTurnServer(name, iceServers) {
+            const pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
+            const candidates = [];
+            
+            return new Promise((resolve) => {
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        const c = event.candidate.candidate;
+                        const type = classifyCandidate(c);
+                        candidates.push(type);
+                    }
+                };
+                
+                pc.onicegatheringstatechange = () => {
+                    if (pc.iceGatheringState === 'complete') {
+                        const relayCount = candidates.filter(c => c === 'relay').length;
+                        console.log(`🧪 TURN test [${name}]: ${relayCount} relay, ${candidates.filter(c=>c==='host').length} host, ${candidates.filter(c=>c==='srflx').length} srflx`);
+                        pc.close();
+                        resolve(relayCount > 0);
+                    }
+                };
+                
+                pc.createDataChannel('test');
+                pc.createOffer().then(offer => pc.setLocalDescription(offer));
+                
+                setTimeout(() => {
+                    const relayCount = candidates.filter(c => c === 'relay').length;
+                    console.log(`🧪 TURN test [${name}] timeout: ${relayCount} relay`);
+                    pc.close();
+                    resolve(relayCount > 0);
+                }, 10000);
+            });
+        }
 
         let voicePC = null;
         let localStream = null;
@@ -1459,8 +1575,8 @@
         let _pendingIceCandidates = [];
 
         // ---- SDP Compression ----
-        // Strip candidate lines and ssrc lines to reduce SDP size
-        // Only removes lines that are safe to strip (candidates sent separately via trickle)
+        // Strip candidate lines to reduce SDP size (candidates sent separately via trickle ICE)
+        // Keep ssrc lines - they're needed for proper audio stream association
         function compressSdp(sdpObj) {
             if (!sdpObj || !sdpObj.sdp) return sdpObj;
             const lines = sdpObj.sdp.split('\n');
@@ -1469,10 +1585,7 @@
                 const t = line.trim();
                 // Strip candidate lines (they're sent separately via batched trickle ICE)
                 if (t.startsWith('a=candidate')) continue;
-                // Strip ssrc-group lines (not needed for audio-only call)
-                if (t.startsWith('a=ssrc-group:')) continue;
-                // Strip ssrc lines (not required for initial SDP exchange, browser recreates them)
-                if (t.startsWith('a=ssrc:')) continue;
+                // Keep ssrc and ssrc-group lines - needed for audio stream association
                 kept.push(line);
             }
             return { type: sdpObj.type, sdp: kept.join('\n') };
@@ -1534,15 +1647,60 @@
             if (!conn && !mpNftyConn) { addMsg('sys', '⚠️ لا يوجد اتصال بالخصم'); return; }
 
             try {
+                // Get ICE servers (cached for 30 min)
+                addMsg('sys', '🔧 جاري فحص خوادم الاتصال...');
+                _cachedIceServers = await getIceServers();
+                
+                // Quick TURN test: create a temp peer connection to check for relay candidates
+                const turnTestPC = new RTCPeerConnection({ iceServers: _cachedIceServers, iceCandidatePoolSize: 10 });
+                let hasRelay = false;
+                let hasSrflx = false;
+                const testPromise = new Promise((resolve) => {
+                    const testCandidates = [];
+                    turnTestPC.onicecandidate = (e) => {
+                        if (e.candidate) {
+                            const type = classifyCandidate(e.candidate.candidate);
+                            testCandidates.push(type);
+                            if (type === 'relay') hasRelay = true;
+                            if (type === 'srflx') hasSrflx = true;
+                        }
+                    };
+                    turnTestPC.onicegatheringstatechange = () => {
+                        if (turnTestPC.iceGatheringState === 'complete') {
+                            const relay = testCandidates.filter(c => c === 'relay').length;
+                            const srflx = testCandidates.filter(c => c === 'srflx').length;
+                            const host = testCandidates.filter(c => c === 'host').length;
+                            console.log(`🧪 Pre-call ICE test: ${relay} relay, ${srflx} srflx, ${host} host`);
+                            resolve();
+                        }
+                    };
+                    turnTestPC.createDataChannel('t');
+                    turnTestPC.createOffer().then(o => turnTestPC.setLocalDescription(o));
+                    setTimeout(resolve, 8000); // 8 second timeout for TURN TCP which is slower
+                });
+                await testPromise;
+                turnTestPC.close();
+
+                if (hasRelay) {
+                    addMsg('sys', '✅ خوادم TURN تعمل - الاتصال عبر شبكات مختلفة متاح');
+                } else if (hasSrflx) {
+                    addMsg('sys', '⚠️ خوادم STUN تعمل لكن TURN لا - قد لا ينجح الاتصال عبر شبكات مختلفة');
+                } else {
+                    addMsg('sys', '⚠️ لا يمكن الوصول لخوادم الاتصال - جرب شبكة WiFi مختلفة');
+                }
+
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 callState = 'calling';
                 updateCallUI();
                 addMsg('sys', '📞 جاري الاتصال...');
 
-                // Generate dynamic TURN credentials for this call
-                _cachedIceServers = await getIceServers();
                 console.log('🔑 ICE servers configured:', _cachedIceServers.length, 'servers');
-                voicePC = new RTCPeerConnection({ iceServers: _cachedIceServers });
+                voicePC = new RTCPeerConnection({
+                    iceServers: _cachedIceServers,
+                    iceCandidatePoolSize: 10,
+                    bundlePolicy: 'max-bundle',
+                    rtcpMuxPolicy: 'require'
+                });
                 setupPeerConnection();
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
@@ -1786,10 +1944,15 @@
             id('incoming-call-overlay').classList.remove('show');
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                // Generate dynamic TURN credentials for this call
+                // Get dynamic TURN credentials for this call
                 _cachedIceServers = await getIceServers();
                 console.log('🔑 ICE servers configured:', _cachedIceServers.length, 'servers');
-                voicePC = new RTCPeerConnection({ iceServers: _cachedIceServers });
+                voicePC = new RTCPeerConnection({
+                    iceServers: _cachedIceServers,
+                    iceCandidatePoolSize: 10,
+                    bundlePolicy: 'max-bundle',
+                    rtcpMuxPolicy: 'require'
+                });
                 setupPeerConnection();
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
@@ -1866,6 +2029,7 @@
             _iceBatch = [];
             _iceGatheringDone = false;
             _cachedIceServers = null;
+            _cachedIceServersTime = 0;
             if (_iceBatchTimer) { clearTimeout(_iceBatchTimer); _iceBatchTimer = null; }
             window._pendingOffer = null;
             clearInterval(callTimerInterval);
@@ -1920,6 +2084,10 @@
         id('btn-voice-call').onclick = () => {
             if (callState === 'idle') startVoiceCall();
             else if (callState === 'calling') hangupCall();
+        };
+        id('btn-turn-test').onclick = () => {
+            if (gameMode === 'ai') { addMsg('sys', '⚠️ لا يمكن الفحص في وضع الكمبيوتر'); return; }
+            testTurnConnectivity();
         };
         id('btn-hangup').onclick = hangupCall;
         id('btn-mute').onclick = toggleMute;
