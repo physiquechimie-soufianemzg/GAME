@@ -1391,13 +1391,14 @@
         });
 
         // ========== Voice Call System (WebRTC + ntfy.sh signaling) ==========
-        // Architecture: Trickle ICE with BATCHED candidates
-        // 1. Send SDP without candidates immediately (fits in ntfy.sh 4KB)
-        // 2. Batch ICE candidates and send every 800ms (avoid ntfy.sh rate limit)
-        // 3. Send "ice_complete" signal when gathering is done
+        // Architecture: Non-trickle ICE (complete SDP with all candidates)
+        // 1. Create offer/answer and wait for ICE gathering to complete
+        // 2. Send full SDP with ALL candidates included (single message)
+        // 3. Remote peer receives complete SDP - no separate candidate messages needed
         //
-        // Key insight: ntfy.sh limits to ~1 msg/sec. Sending each ICE candidate
-        // individually would exceed this limit. Batching solves it.
+        // This approach is simpler and more reliable than trickle ICE with ntfy.sh
+        // because it avoids rate limiting, timing issues, and message loss.
+        // The tradeoff is a slightly longer setup time (5-15 sec for ICE gathering).
 
         // ---- Dynamic TURN Credentials ----
         // Metered Open Relay uses static auth secret to generate time-limited credentials
@@ -1566,32 +1567,15 @@
         let callStartTime = 0;
         let isMuted = false;
 
-        // ICE candidate batching: collect candidates, send in batches
-        let _iceBatch = [];
-        let _iceBatchTimer = null;
-        let _iceGatheringDone = false;
-
-        // Pending candidates received before remote description is set
-        let _pendingIceCandidates = [];
-
-        // ---- SDP Compression ----
-        // Strip candidate lines to reduce SDP size (candidates sent separately via trickle ICE)
-        // Keep ssrc lines - they're needed for proper audio stream association
-        function compressSdp(sdpObj) {
-            if (!sdpObj || !sdpObj.sdp) return sdpObj;
-            const lines = sdpObj.sdp.split('\n');
-            const kept = [];
-            for (const line of lines) {
-                const t = line.trim();
-                // Strip candidate lines (they're sent separately via batched trickle ICE)
-                if (t.startsWith('a=candidate')) continue;
-                // Keep ssrc and ssrc-group lines - needed for audio stream association
-                kept.push(line);
-            }
-            return { type: sdpObj.type, sdp: kept.join('\n') };
+        // ---- Voice Call Diagnostics ----
+        let _voiceDiag = { candidates: [], states: [], errors: [] };
+        function voiceLog(msg) {
+            const ts = new Date().toLocaleTimeString();
+            console.log(`📞 [${ts}] ${msg}`);
+            _voiceDiag.states.push(`${ts}: ${msg}`);
         }
 
-        // ---- Send voice signal with size validation ----
+        // ---- Send voice signal ----
         function sendCallSignal(data) {
             let sent = false;
             if (conn && conn.open) {
@@ -1607,119 +1591,26 @@
             }
         }
 
-        // ---- ICE Candidate Batching ----
-        // Collects candidates and sends them in batches every 800ms
-        // This avoids ntfy.sh's ~1 msg/sec rate limit
-        function _flushIceBatch() {
-            if (_iceBatch.length === 0) return;
-            const candidates = _iceBatch.splice(0);
-            // Log candidate types for diagnostics
-            const typeCounts = {};
-            candidates.forEach(c => {
-                const t = classifyCandidate(c.candidate || '');
-                typeCounts[t] = (typeCounts[t] || 0) + 1;
+        // ---- Wait for ICE gathering to complete ----
+        function waitForIceGathering(pc, timeout = 12000) {
+            return new Promise((resolve) => {
+                if (pc.iceGatheringState === 'complete') {
+                    resolve();
+                    return;
+                }
+                const onStateChange = () => {
+                    if (pc.iceGatheringState === 'complete') {
+                        pc.removeEventListener('icegatheringstatechange', onStateChange);
+                        resolve();
+                    }
+                };
+                pc.addEventListener('icegatheringstatechange', onStateChange);
+                setTimeout(() => {
+                    pc.removeEventListener('icegatheringstatechange', onStateChange);
+                    voiceLog('ICE gathering timeout - sending what we have');
+                    resolve(); // Resolve anyway after timeout
+                }, timeout);
             });
-            console.log(`📡 Sending ${candidates.length} ICE candidates:`, JSON.stringify(typeCounts));
-            sendCallSignal({ type: 'ice_candidates', candidates: candidates });
-        }
-
-        function _scheduleIceBatch() {
-            if (_iceBatchTimer) return; // Already scheduled
-            _iceBatchTimer = setTimeout(() => {
-                _iceBatchTimer = null;
-                _flushIceBatch();
-                // If gathering is done and we still have candidates, flush again
-                if (_iceGatheringDone && _iceBatch.length > 0) {
-                    _flushIceBatch();
-                }
-                // If gathering is done, send completion signal
-                if (_iceGatheringDone && _iceBatch.length === 0) {
-                    sendCallSignal({ type: 'ice_complete' });
-                    _iceGatheringDone = false;
-                }
-            }, 800);
-        }
-
-        // ---- Start Voice Call (Caller) ----
-        async function startVoiceCall() {
-            if (callState !== 'idle') return;
-            if (gameMode === 'ai') { addMsg('sys', '⚠️ لا يمكن الاتصال بالكمبيوتر'); return; }
-            if (!conn && !mpNftyConn) { addMsg('sys', '⚠️ لا يوجد اتصال بالخصم'); return; }
-
-            try {
-                // Get ICE servers (cached for 30 min)
-                addMsg('sys', '🔧 جاري فحص خوادم الاتصال...');
-                _cachedIceServers = await getIceServers();
-                
-                // Quick TURN test: create a temp peer connection to check for relay candidates
-                const turnTestPC = new RTCPeerConnection({ iceServers: _cachedIceServers, iceCandidatePoolSize: 10 });
-                let hasRelay = false;
-                let hasSrflx = false;
-                const testPromise = new Promise((resolve) => {
-                    const testCandidates = [];
-                    turnTestPC.onicecandidate = (e) => {
-                        if (e.candidate) {
-                            const type = classifyCandidate(e.candidate.candidate);
-                            testCandidates.push(type);
-                            if (type === 'relay') hasRelay = true;
-                            if (type === 'srflx') hasSrflx = true;
-                        }
-                    };
-                    turnTestPC.onicegatheringstatechange = () => {
-                        if (turnTestPC.iceGatheringState === 'complete') {
-                            const relay = testCandidates.filter(c => c === 'relay').length;
-                            const srflx = testCandidates.filter(c => c === 'srflx').length;
-                            const host = testCandidates.filter(c => c === 'host').length;
-                            console.log(`🧪 Pre-call ICE test: ${relay} relay, ${srflx} srflx, ${host} host`);
-                            resolve();
-                        }
-                    };
-                    turnTestPC.createDataChannel('t');
-                    turnTestPC.createOffer().then(o => turnTestPC.setLocalDescription(o));
-                    setTimeout(resolve, 8000); // 8 second timeout for TURN TCP which is slower
-                });
-                await testPromise;
-                turnTestPC.close();
-
-                if (hasRelay) {
-                    addMsg('sys', '✅ خوادم TURN تعمل - الاتصال عبر شبكات مختلفة متاح');
-                } else if (hasSrflx) {
-                    addMsg('sys', '⚠️ خوادم STUN تعمل لكن TURN لا - قد لا ينجح الاتصال عبر شبكات مختلفة');
-                } else {
-                    addMsg('sys', '⚠️ لا يمكن الوصول لخوادم الاتصال - جرب شبكة WiFi مختلفة');
-                }
-
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                callState = 'calling';
-                updateCallUI();
-                addMsg('sys', '📞 جاري الاتصال...');
-
-                console.log('🔑 ICE servers configured:', _cachedIceServers.length, 'servers');
-                voicePC = new RTCPeerConnection({
-                    iceServers: _cachedIceServers,
-                    iceCandidatePoolSize: 10,
-                    bundlePolicy: 'max-bundle',
-                    rtcpMuxPolicy: 'require'
-                });
-                setupPeerConnection();
-                localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
-
-                _iceGatheringDone = false;
-                const offer = await voicePC.createOffer();
-                await voicePC.setLocalDescription(offer);
-
-                // Send compressed SDP without candidates
-                const compressedOffer = compressSdp(voicePC.localDescription);
-                const msgSize = JSON.stringify(compressedOffer).length;
-                console.log(`📤 Offer SDP size: ${msgSize} bytes (compressed from ${JSON.stringify(voicePC.localDescription).length})`);
-
-                sendCallSignal({ type: 'offer', sdp: compressedOffer });
-                addMsg('sys', '📡 تم إرسال طلب الاتصال...');
-            } catch (e) {
-                console.error('Voice call error:', e);
-                addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
-                resetCall();
-            }
         }
 
         // ---- Classify ICE candidate type for diagnostics ----
@@ -1732,36 +1623,97 @@
             return 'other';
         }
 
+        // ---- Count candidate types in SDP ----
+        function countSdpCandidates(sdp) {
+            if (!sdp) return { host: 0, srflx: 0, relay: 0, total: 0 };
+            const lines = sdp.split('\n').filter(l => l.trim().startsWith('a=candidate'));
+            const counts = { host: 0, srflx: 0, relay: 0, total: lines.length };
+            lines.forEach(l => {
+                const t = classifyCandidate(l);
+                if (counts[t] !== undefined) counts[t]++;
+            });
+            return counts;
+        }
+
+        // ---- Start Voice Call (Caller) ----
+        async function startVoiceCall() {
+            if (callState !== 'idle') return;
+            if (gameMode === 'ai') { addMsg('sys', '⚠️ لا يمكن الاتصال بالكمبيوتر'); return; }
+            if (!conn && !mpNftyConn) { addMsg('sys', '⚠️ لا يوجد اتصال بالخصم'); return; }
+
+            _voiceDiag = { candidates: [], states: [], errors: [] };
+
+            try {
+                // 1. Get ICE servers
+                addMsg('sys', '🔧 جاري تحضير خوادم الاتصال...');
+                _cachedIceServers = await getIceServers();
+                voiceLog(`ICE servers: ${_cachedIceServers.length}`);
+
+                // 2. Get mic access
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                callState = 'calling';
+                updateCallUI();
+                addMsg('sys', '📞 جاري الاتصال...');
+                voiceLog('Microphone access granted');
+
+                // 3. Create peer connection
+                voicePC = new RTCPeerConnection({
+                    iceServers: _cachedIceServers,
+                    iceCandidatePoolSize: 10,
+                    bundlePolicy: 'max-bundle',
+                    rtcpMuxPolicy: 'require'
+                });
+                setupPeerConnection();
+                localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
+
+                // 4. Create offer and wait for ICE gathering
+                const offer = await voicePC.createOffer();
+                await voicePC.setLocalDescription(offer);
+                voiceLog('Offer created, waiting for ICE gathering...');
+
+                addMsg('sys', '📡 جاري البحث عن مسارات الاتصال...');
+                await waitForIceGathering(voicePC, 12000);
+
+                // 5. Log candidate summary
+                const candCounts = countSdpCandidates(voicePC.localDescription.sdp);
+                voiceLog(`ICE gathering done: ${candCounts.total} candidates (${candCounts.host} host, ${candCounts.srflx} srflx, ${candCounts.relay} relay)`);
+                
+                if (candCounts.relay > 0) {
+                    addMsg('sys', '✅ تم العثور على مسار TURN - الاتصال عبر شبكات مختلفة متاح');
+                } else if (candCounts.srflx > 0) {
+                    addMsg('sys', '⚠️ لا يوجد مسار TURN - قد لا ينجح الاتصال عبر شبكات مختلفة');
+                } else {
+                    addMsg('sys', '⚠️ لم يتم العثور على مسارات اتصال خارجية');
+                }
+
+                // 6. Send full SDP with ALL candidates (non-trickle ICE)
+                const fullSdp = voicePC.localDescription;
+                const msgSize = JSON.stringify(fullSdp).length;
+                voiceLog(`Sending offer SDP: ${msgSize} bytes (${candCounts.total} candidates included)`);
+
+                sendCallSignal({ type: 'offer', sdp: fullSdp });
+                addMsg('sys', '📡 تم إرسال طلب الاتصال...');
+            } catch (e) {
+                console.error('Voice call error:', e);
+                voiceLog(`ERROR: ${e.message}`);
+                addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون');
+                resetCall();
+            }
+        }
+
         // ---- Setup Peer Connection Events ----
         function setupPeerConnection() {
-            // Trickle ICE: batch candidates instead of sending individually
+            // Log all ICE candidates for diagnostics (no need to send them - they're in the SDP)
             voicePC.onicecandidate = (event) => {
                 if (event.candidate) {
                     const candType = classifyCandidate(event.candidate.candidate);
-                    console.log(`🧊 ICE candidate: ${candType} - ${event.candidate.candidate.substring(0, 60)}...`);
-                    _iceBatch.push(event.candidate.toJSON());
-                    _scheduleIceBatch();
-                }
-            };
-
-            // ICE gathering complete
-            voicePC.onicegatheringstatechange = () => {
-                if (voicePC && voicePC.iceGatheringState === 'complete') {
-                    console.log('✅ ICE gathering complete');
-                    _iceGatheringDone = true;
-                    // Flush any remaining candidates immediately
-                    if (_iceBatchTimer) {
-                        clearTimeout(_iceBatchTimer);
-                        _iceBatchTimer = null;
-                    }
-                    _flushIceBatch();
-                    sendCallSignal({ type: 'ice_complete' });
+                    _voiceDiag.candidates.push(candType);
                 }
             };
 
             // Remote audio track received
             voicePC.ontrack = (event) => {
-                console.log('🔊 Remote track received');
+                voiceLog('Remote audio track received!');
                 remoteStream = event.streams[0];
                 let audioEl = document.getElementById('remote-audio');
                 if (!audioEl) {
@@ -1773,10 +1725,9 @@
                     document.body.appendChild(audioEl);
                 }
                 audioEl.srcObject = remoteStream;
-                // Force play - browsers require user gesture for autoplay
                 const tryPlay = () => {
                     audioEl.play().then(() => {
-                        console.log('🔊 Remote audio playing');
+                        voiceLog('Remote audio playing');
                     }).catch(e => {
                         console.warn('Audio play failed, retrying in 500ms:', e.message);
                         setTimeout(tryPlay, 500);
@@ -1789,8 +1740,7 @@
             voicePC.oniceconnectionstatechange = () => {
                 if (!voicePC) return;
                 const state = voicePC.iceConnectionState;
-                const signalingState = voicePC.signalingState;
-                console.log(`ICE state: ${state} | Signaling: ${signalingState}`);
+                voiceLog(`ICE state: ${state}`);
 
                 if (state === 'connected' || state === 'completed') {
                     if (callState !== 'connected') {
@@ -1800,22 +1750,25 @@
                         updateCallUI();
                         addMsg('sys', '✅ تم الاتصال صوتياً - يمكنك التحدث الآن');
                     }
+                } else if (state === 'checking') {
+                    addMsg('sys', '🔄 جاري التحقق من الاتصال...');
                 } else if (state === 'disconnected') {
                     addMsg('sys', '⚠️ انقطاع مؤقت في الاتصال الصوتي...');
-                    // Try ICE restart after 2 seconds (faster recovery)
                     setTimeout(() => {
                         if (voicePC && voicePC.iceConnectionState === 'disconnected') {
                             try {
                                 voicePC.restartIce();
-                                console.log('🔄 ICE restart attempted');
+                                voiceLog('ICE restart attempted');
                                 addMsg('sys', '🔄 جاري إعادة الاتصال...');
                             } catch(e) { console.warn('ICE restart failed:', e); }
                         }
-                    }, 2000);
+                    }, 3000);
                 } else if (state === 'failed') {
-                    console.error('❌ ICE connection failed. Gathering state:', voicePC.iceGatheringState);
+                    voiceLog('ICE FAILED');
+                    const candCounts = countSdpCandidates(voicePC.currentRemoteDescription?.sdp);
+                    voiceLog(`Remote candidates: ${JSON.stringify(candCounts)}`);
                     addMsg('sys', '❌ فشل الاتصال الصوتي');
-                    addMsg('sys', '💡 جرب: 1) شبكة WiFi مختلفة 2) إعادة تحميل الصفحة 3) التأكد من السماح بالميكروفون');
+                    addMsg('sys', '💡 جرب: 1) شبكة WiFi مختلفة 2) إعادة تحميل الصفحة');
                     resetCall();
                 } else if (state === 'closed') {
                     if (callState !== 'idle') {
@@ -1825,16 +1778,10 @@
                 }
             };
 
-            // Log ICE gathering state for diagnostics
-            voicePC.onicegatheringstatechange = () => {
-                if (!voicePC) return;
-                console.log('ICE gathering state:', voicePC.iceGatheringState);
-            };
-
             // Log peer connection state
             voicePC.onconnectionstatechange = () => {
                 if (!voicePC) return;
-                console.log('Connection state:', voicePC.connectionState);
+                voiceLog(`Connection state: ${voicePC.connectionState}`);
                 if (voicePC.connectionState === 'failed') {
                     addMsg('sys', '❌ فشل الاتصال - جرب إعادة تحميل الصفحة');
                     resetCall();
@@ -1842,91 +1789,46 @@
             };
         }
 
-        // ---- Add pending ICE candidates after remote description is set ----
-        async function flushPendingIceCandidates() {
-            while (_pendingIceCandidates.length > 0) {
-                const cand = _pendingIceCandidates.shift();
-                try {
-                    await voicePC.addIceCandidate(new RTCIceCandidate(cand));
-                } catch (e) {
-                    console.warn('Add ICE candidate error:', e);
-                }
-            }
-        }
-
         // ---- Handle Incoming Voice Signal ----
         async function handleVoiceSignal(data) {
             const signal = data.signal || data;
             if (!signal || !signal.type) return;
 
-            console.log('📥 Voice signal received:', signal.type);
+            voiceLog(`Signal received: ${signal.type}`);
 
             if (signal.type === 'offer') {
-                // Incoming call
+                // Incoming call with full SDP (candidates included)
                 if (callState !== 'idle') {
                     sendCallSignal({ type: 'reject', reason: 'busy' });
                     return;
                 }
+                // Log the offer's candidate types
+                const candCounts = countSdpCandidates(signal.sdp?.sdp);
+                voiceLog(`Offer received with ${candCounts.total} candidates (${candCounts.host} host, ${candCounts.srflx} srflx, ${candCounts.relay} relay)`);
+                
                 callState = 'ringing';
                 updateCallUI();
                 id('caller-name').textContent = opponentName || 'الخصم';
                 id('incoming-call-overlay').classList.add('show');
                 window._pendingOffer = signal.sdp;
-                // Also store any early ICE candidates
-                _pendingIceCandidates = [];
             }
             else if (signal.type === 'answer') {
-                // Caller receives answer from receiver
+                // Caller receives answer with full SDP (candidates included)
                 if (voicePC && voicePC.signalingState === 'have-local-offer') {
                     try {
+                        const candCounts = countSdpCandidates(signal.sdp?.sdp);
+                        voiceLog(`Answer received with ${candCounts.total} candidates (${candCounts.host} host, ${candCounts.srflx} srflx, ${candCounts.relay} relay)`);
+                        
                         await voicePC.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-                        addMsg('sys', '📡 تم استلام رد الاتصال...');
-                        // Add any ICE candidates that arrived before the answer
-                        await flushPendingIceCandidates();
+                        addMsg('sys', '📡 تم استلام رد الاتصال، جاري الاتصال...');
+                        voiceLog('Remote description set - ICE checks starting');
                     } catch (e) {
                         console.error('Set remote description error:', e);
+                        voiceLog(`ERROR setRemoteDescription: ${e.message}`);
                         addMsg('sys', '❌ فشل في معالجة رد الاتصال: ' + e.message);
                         resetCall();
                     }
                 }
-            }
-            else if (signal.type === 'ice_candidates') {
-                // Batch of ICE candidates received
-                const candidates = signal.candidates || [];
-                // Log candidate types for diagnostics
-                const typeCounts = {};
-                candidates.forEach(c => {
-                    const t = classifyCandidate(c.candidate || '');
-                    typeCounts[t] = (typeCounts[t] || 0) + 1;
-                });
-                console.log(`📥 Received ${candidates.length} ICE candidates:`, JSON.stringify(typeCounts));
-                for (const cand of candidates) {
-                    if (voicePC && voicePC.remoteDescription) {
-                        try {
-                            await voicePC.addIceCandidate(new RTCIceCandidate(cand));
-                        } catch (e) {
-                            console.warn('Add ICE candidate error:', e);
-                        }
-                    } else {
-                        // Buffer until remote description is set
-                        _pendingIceCandidates.push(cand);
-                    }
-                }
-            }
-            else if (signal.type === 'ice_candidate') {
-                // Single ICE candidate (legacy/compatibility)
-                if (voicePC && voicePC.remoteDescription) {
-                    try {
-                        await voicePC.addIceCandidate(new RTCIceCandidate(signal.candidate));
-                    } catch (e) {
-                        console.warn('Add ICE candidate error:', e);
-                    }
-                } else {
-                    _pendingIceCandidates.push(signal.candidate);
-                }
-            }
-            else if (signal.type === 'ice_complete') {
-                console.log('✅ Remote ICE gathering complete');
             }
             else if (signal.type === 'reject') {
                 const reasons = { busy: 'الخصم مشغول بمكالمة أخرى', declined: 'رفض الخصم الاتصال', error: 'حدث خطأ عند الخصم' };
@@ -1946,7 +1848,8 @@
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 // Get dynamic TURN credentials for this call
                 _cachedIceServers = await getIceServers();
-                console.log('🔑 ICE servers configured:', _cachedIceServers.length, 'servers');
+                voiceLog(`Accepting call, ICE servers: ${_cachedIceServers.length}`);
+
                 voicePC = new RTCPeerConnection({
                     iceServers: _cachedIceServers,
                     iceCandidatePoolSize: 10,
@@ -1956,27 +1859,35 @@
                 setupPeerConnection();
                 localStream.getTracks().forEach(track => voicePC.addTrack(track, localStream));
 
-                // Set the remote offer
+                // Set the remote offer (contains all candidates)
                 await voicePC.setRemoteDescription(new RTCSessionDescription(window._pendingOffer));
-                // Add any ICE candidates that arrived before we accepted
-                await flushPendingIceCandidates();
+                voiceLog('Remote offer set');
 
-                _iceGatheringDone = false;
+                // Create answer and wait for ICE gathering
                 const answer = await voicePC.createAnswer();
                 await voicePC.setLocalDescription(answer);
+                voiceLog('Answer created, waiting for ICE gathering...');
 
-                // Send compressed answer SDP
-                const compressedAnswer = compressSdp(voicePC.localDescription);
-                const msgSize = JSON.stringify(compressedAnswer).length;
-                console.log(`📤 Answer SDP size: ${msgSize} bytes`);
+                addMsg('sys', '📡 جاري البحث عن مسارات الاتصال...');
+                await waitForIceGathering(voicePC, 12000);
 
-                sendCallSignal({ type: 'answer', sdp: compressedAnswer });
+                // Log candidate summary
+                const candCounts = countSdpCandidates(voicePC.localDescription.sdp);
+                voiceLog(`Answer ICE gathering done: ${candCounts.total} candidates (${candCounts.host} host, ${candCounts.srflx} srflx, ${candCounts.relay} relay)`);
+
+                // Send full SDP with ALL candidates (non-trickle ICE)
+                const fullSdp = voicePC.localDescription;
+                const msgSize = JSON.stringify(fullSdp).length;
+                voiceLog(`Sending answer SDP: ${msgSize} bytes (${candCounts.total} candidates included)`);
+
+                sendCallSignal({ type: 'answer', sdp: fullSdp });
 
                 callState = 'calling';
                 updateCallUI();
                 addMsg('sys', '📡 تم قبول الاتصال، جاري الاتصال...');
             } catch (e) {
                 console.error('Accept call error:', e);
+                voiceLog(`ERROR accepting: ${e.message}`);
                 addMsg('sys', '❌ لا يمكن الوصول إلى الميكروفون: ' + e.message);
                 sendCallSignal({ type: 'reject', reason: 'error' });
                 resetCall();
@@ -2025,12 +1936,8 @@
             if (audioEl) { audioEl.srcObject = null; audioEl.remove(); }
             callState = 'idle';
             isMuted = false;
-            _pendingIceCandidates = [];
-            _iceBatch = [];
-            _iceGatheringDone = false;
             _cachedIceServers = null;
             _cachedIceServersTime = 0;
-            if (_iceBatchTimer) { clearTimeout(_iceBatchTimer); _iceBatchTimer = null; }
             window._pendingOffer = null;
             clearInterval(callTimerInterval);
             callTimerInterval = null;
